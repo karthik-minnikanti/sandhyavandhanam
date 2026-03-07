@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Sandhyavandanam",
+    "slug": "sandhyavandanam",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/gayatri-mata.jpg",
+    "scheme": "sandhyavandanam",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/gayatri-mata.jpg",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a472a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sandhyavandanam.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/gayatri-mata.jpg",
+        "backgroundColor": "#1a472a"
+      },
+      "package": "com.sandhyavandanam.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/gayatri-mata.jpg"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-asset"
+    ]
+  }
+}
