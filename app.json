@@ -19,7 +19,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/gayatri-mata.jpg",
+        "foregroundImage": "./assets/icon-adaptive.png",
         "backgroundColor": "#1a472a"
       },
       "package": "com.sandhyavandanam.app"
@@ -30,7 +30,20 @@
     },
     "plugins": [
       "expo-font",
-      "expo-asset"
-    ]
+      "expo-asset",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/gayatri-mata.jpg",
+          "color": "#1a472a",
+          "sounds": []
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "fe76a9c5-00e9-4151-b99a-4cb03b9636d1"
+      }
+    }
   }
 }

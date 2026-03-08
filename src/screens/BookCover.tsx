@@ -10,6 +10,7 @@ import {
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../types/navigation";
 import { colors } from "../theme/colors";
+import { useApp } from "../context/AppContext";
 
 const gayatriMataImage = require("../../assets/gayatri-mata.jpg");
 const AUTO_OPEN_DELAY_MS = 1500;
@@ -21,6 +22,7 @@ type Props = {
 export default function BookCover({ navigation }: Props) {
   const { height } = useWindowDimensions();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { lastSection, streak } = useApp();
 
   useEffect(() => {
     timerRef.current = setTimeout(() => {
@@ -39,18 +41,31 @@ export default function BookCover({ navigation }: Props) {
     navigation.navigate("TableOfContents");
   };
 
-  return (
-    <Pressable
-      style={[styles.cover, { minHeight: height }]}
-      onPress={openBook}
-    >
-      {/* Book spine */}
-      <View style={styles.spine}>
-        <View style={styles.spineStrip} />
-      </View>
+  const continueFromLast = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (lastSection) {
+      navigation.navigate("SandhyavandanamVidhanam", { initialPage: lastSection.page });
+    }
+  };
 
-      {/* Main cover content */}
-      <View style={styles.coverInner}>
+  return (
+    <View style={[styles.cover, { minHeight: height }]}>
+      {lastSection ? (
+        <Pressable style={styles.continueBtn} onPress={continueFromLast}>
+          <Text style={styles.continueText}>Continue from {lastSection.title}</Text>
+        </Pressable>
+      ) : null}
+      <Pressable style={StyleSheet.absoluteFill} onPress={openBook}>
+        {/* Book spine */}
+        <View style={styles.spine}>
+          <View style={styles.spineStrip} />
+        </View>
+
+        {/* Main cover content */}
+        <View style={styles.coverInner}>
         <View style={styles.frame}>
           <Text style={styles.om}>ॐ</Text>
           <Image
@@ -66,9 +81,13 @@ export default function BookCover({ navigation }: Props) {
             <Text style={styles.subtitle}>సంధ్యావందన విధానం</Text>
             <Text style={styles.subtitle}>యజ్ఞోపవీత ధారణ విధిః</Text>
           </View>
+          {streak > 0 ? (
+            <Text style={styles.streakText}>ॐ {streak} day streak</Text>
+          ) : null}
         </View>
       </View>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
@@ -78,6 +97,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     justifyContent: "center",
     alignItems: "center",
+  },
+  continueBtn: {
+    position: "absolute",
+    top: 56,
+    left: 24,
+    right: 24,
+    zIndex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    alignItems: "center",
+  },
+  continueText: {
+    color: colors.goldLight,
+    fontSize: 14,
+    fontWeight: "600",
   },
   spine: {
     position: "absolute",
@@ -167,5 +205,11 @@ const styles = StyleSheet.create({
     color: colors.textOnDarkMuted,
     lineHeight: 22,
     opacity: 0.95,
+  },
+  streakText: {
+    fontSize: 13,
+    color: colors.gold,
+    opacity: 0.9,
+    letterSpacing: 0.5,
   },
 });

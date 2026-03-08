@@ -13,6 +13,14 @@ export type Section = {
 
 export const opening = `శ్రీ గురుభ్యో నమః | హరిః ఓం ||`;
 
+/** శుక్లాంబరధరం — Vishnu dhyana sloka (recited at start of sandhyavandanam). */
+export const suklamBaradaram = `శుక్లాంబరధరం విష్ణుం శశివర్ణం చతుర్భుజమ్ ।
+ప్రసన్నవదనం ధ్యాయేత్ సర్వవిఘ్నోపశాంతయే ॥`;
+
+/** గురుర్బ్రహ్మ — Guru mantra (Guru sakshat param brahma). */
+export const gurushakshath = `గురుర్బ్రహ్మా గురుర్విష్ణుర్గురుర్దేవో మహేశ్వరః ।
+గురుః సాక్షాత్ పరం బ్రహ్మ తస్మై శ్రీగురవే నమః ॥`;
+
 export const sandhyavandanamSections: Section[] = [
   {
     titleTe: "|| శుచిః ||",

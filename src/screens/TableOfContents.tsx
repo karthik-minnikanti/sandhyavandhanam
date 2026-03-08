@@ -9,6 +9,7 @@ import {
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../types/navigation";
 import { colors } from "../theme/colors";
+import { useApp } from "../context/AppContext";
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, "TableOfContents">;
@@ -30,11 +31,25 @@ const chapters = [
 ];
 
 export default function TableOfContents({ navigation }: Props) {
+  const { lastSection } = useApp();
+
+  const openSandhyavandanam = (initialPage?: number) => {
+    navigation.navigate("SandhyavandanamVidhanam", initialPage != null ? { initialPage } : undefined);
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Contents</Text>
         <Text style={styles.headerSubtitle}>విషయ సూచిక</Text>
+        {lastSection ? (
+          <Pressable
+            style={({ pressed }) => [styles.continueBtn, pressed && styles.pressed]}
+            onPress={() => openSandhyavandanam(lastSection.page)}
+          >
+            <Text style={styles.continueBtnText}>Continue from {lastSection.title}</Text>
+          </Pressable>
+        ) : null}
       </View>
       <ScrollView
         style={styles.scroll}
@@ -48,7 +63,11 @@ export default function TableOfContents({ navigation }: Props) {
               styles.chapterCard,
               pressed && styles.chapterCardPressed,
             ]}
-            onPress={() => navigation.navigate(ch.key)}
+            onPress={() =>
+              ch.key === "SandhyavandanamVidhanam"
+                ? openSandhyavandanam()
+                : navigation.navigate(ch.key)
+            }
           >
             <View style={styles.chapterNumber}>
               <Text style={styles.chapterNumberText}>{i + 1}</Text>
@@ -92,6 +111,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textOnDarkMuted,
     marginTop: 4,
+  },
+  continueBtn: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  pressed: { opacity: 0.9 },
+  continueBtnText: {
+    fontSize: 14,
+    color: colors.goldLight,
+    fontWeight: "600",
   },
   scroll: {
     flex: 1,
