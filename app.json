@@ -3,7 +3,7 @@
     "name": "Sandhyavandanam",
     "slug": "sandhyavandanam",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/gayatri-mata.jpg",
     "scheme": "sandhyavandanam",
     "userInterfaceStyle": "automatic",

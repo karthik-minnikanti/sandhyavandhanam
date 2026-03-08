@@ -22,7 +22,7 @@ type Props = {
 export default function BookCover({ navigation }: Props) {
   const { height } = useWindowDimensions();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { lastSection, streak } = useApp();
+  const { streak } = useApp();
 
   useEffect(() => {
     timerRef.current = setTimeout(() => {
@@ -41,23 +41,8 @@ export default function BookCover({ navigation }: Props) {
     navigation.navigate("TableOfContents");
   };
 
-  const continueFromLast = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    if (lastSection) {
-      navigation.navigate("SandhyavandanamVidhanam", { initialPage: lastSection.page });
-    }
-  };
-
   return (
     <View style={[styles.cover, { minHeight: height }]}>
-      {lastSection ? (
-        <Pressable style={styles.continueBtn} onPress={continueFromLast}>
-          <Text style={styles.continueText}>Continue from {lastSection.title}</Text>
-        </Pressable>
-      ) : null}
       <Pressable style={StyleSheet.absoluteFill} onPress={openBook}>
         {/* Book spine */}
         <View style={styles.spine}>
@@ -97,25 +82,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     justifyContent: "center",
     alignItems: "center",
-  },
-  continueBtn: {
-    position: "absolute",
-    top: 56,
-    left: 24,
-    right: 24,
-    zIndex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.gold,
-    alignItems: "center",
-  },
-  continueText: {
-    color: colors.goldLight,
-    fontSize: 14,
-    fontWeight: "600",
   },
   spine: {
     position: "absolute",

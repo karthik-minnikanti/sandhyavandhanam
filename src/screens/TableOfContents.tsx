@@ -5,11 +5,11 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
+  Platform,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../types/navigation";
 import { colors } from "../theme/colors";
-import { useApp } from "../context/AppContext";
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, "TableOfContents">;
@@ -31,8 +31,6 @@ const chapters = [
 ];
 
 export default function TableOfContents({ navigation }: Props) {
-  const { lastSection } = useApp();
-
   const openSandhyavandanam = (initialPage?: number) => {
     navigation.navigate("SandhyavandanamVidhanam", initialPage != null ? { initialPage } : undefined);
   };
@@ -40,16 +38,17 @@ export default function TableOfContents({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Contents</Text>
-        <Text style={styles.headerSubtitle}>విషయ సూచిక</Text>
-        {lastSection ? (
-          <Pressable
-            style={({ pressed }) => [styles.continueBtn, pressed && styles.pressed]}
-            onPress={() => openSandhyavandanam(lastSection.page)}
-          >
-            <Text style={styles.continueBtnText}>Continue from {lastSection.title}</Text>
-          </Pressable>
-        ) : null}
+        <View style={styles.headerTextBlock}>
+          <Text style={styles.headerTitle}>Contents</Text>
+          <Text style={styles.headerSubtitle}>విషయ సూచిక</Text>
+        </View>
+        <Pressable
+          onPress={() => navigation.navigate("Preferences")}
+          style={({ pressed }) => [styles.menuBtn, pressed && styles.menuBtnPressed]}
+          accessibilityLabel="Preferences"
+        >
+          <Text style={styles.menuBtnText}>☰</Text>
+        </Pressable>
       </View>
       <ScrollView
         style={styles.scroll}
@@ -96,11 +95,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    paddingTop: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: Platform.OS === "ios" ? 56 : 44,
     paddingBottom: 24,
     paddingHorizontal: 24,
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceLight,
+  },
+  headerTextBlock: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 28,
@@ -112,20 +117,18 @@ const styles = StyleSheet.create({
     color: colors.textOnDarkMuted,
     marginTop: 4,
   },
-  continueBtn: {
-    marginTop: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.gold,
+  menuBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginLeft: 8,
   },
-  pressed: { opacity: 0.9 },
-  continueBtnText: {
-    fontSize: 14,
-    color: colors.goldLight,
+  menuBtnPressed: {
+    opacity: 0.8,
+  },
+  menuBtnText: {
+    fontSize: 22,
     fontWeight: "600",
+    color: colors.goldLight,
   },
   scroll: {
     flex: 1,

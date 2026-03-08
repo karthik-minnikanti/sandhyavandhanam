@@ -72,3 +72,6 @@ export const setReminder = async (enabled: boolean, hour: number, minute: number
   await set(STORAGE_KEYS.REMINDER_HOUR, hour);
   await set(STORAGE_KEYS.REMINDER_MINUTE, minute);
 };
+
+export const getAutoSlideEnabled = () => get<boolean>(STORAGE_KEYS.AUTO_SLIDE_ENABLED, false);
+export const setAutoSlideEnabled = (v: boolean) => set(STORAGE_KEYS.AUTO_SLIDE_ENABLED, v);

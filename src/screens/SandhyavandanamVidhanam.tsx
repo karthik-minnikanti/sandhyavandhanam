@@ -12,7 +12,7 @@ import {
   PanResponder,
   ActivityIndicator,
   Modal,
-  FlatList,
+  useWindowDimensions,
 } from "react-native";
 import { Audio } from "expo-av";
 import { useRoute, RouteProp } from "@react-navigation/native";
@@ -26,7 +26,7 @@ import {
   sandhyavandanamSections,
 } from "../content/sandhyavandanamKrishnaYajurveda";
 import type { Section } from "../content/sandhyavandanamKrishnaYajurveda";
-import { getSectionAudio } from "../audio/sectionAudio";
+import { getSectionAudioTracks } from "../audio/sectionAudio";
 import { useApp } from "../context/AppContext";
 import type { FontSize } from "../storage/keys";
 
@@ -39,7 +39,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 const FONT_SCALE: Record<FontSize, number> = { small: 0.9, medium: 1, large: 1.15 };
-const HINTS_LENGTH = 3;
+const HINTS_LENGTH = 4;
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, "SandhyavandanamVidhanam">;
@@ -85,6 +85,42 @@ function renderTextWithBold(
       {part}
     </Text>
   ));
+}
+
+/** Renders mantra string with heading lines (lines ending with ":") highlighted. */
+function renderMantraWithHeadings(
+  mantraDisplay: string,
+  baseStyle: object,
+  boldStyle: object,
+  headingStyle: object
+): React.ReactNode {
+  const lines = mantraDisplay.split("\n");
+  return lines.map((line, i) => {
+    const trimmed = line.trim();
+    const isHeading = trimmed.length > 0 && trimmed.endsWith(":");
+    if (trimmed === "") {
+      return <Text key={i} style={baseStyle}>{"\n"}</Text>;
+    }
+    if (isHeading) {
+      return (
+        <Text key={i} style={[baseStyle, headingStyle]}>
+          {line}
+        </Text>
+      );
+    }
+    if (line.includes("**")) {
+      return (
+        <Text key={i} style={baseStyle}>
+          {renderTextWithBold(line, baseStyle, boldStyle)}
+        </Text>
+      );
+    }
+    return (
+      <Text key={i} style={baseStyle}>
+        {line}
+      </Text>
+    );
+  });
 }
 
 function BookPageContent({
@@ -165,11 +201,12 @@ function BookPageContent({
       {sec.note ? <Text style={[styles.note, scaled.note]}>{sec.note}</Text> : null}
       {sec.mantra ? (
         <View style={styles.mantraBlock}>
-          <Text style={[styles.mantra, scaled.mantra]}>
-            {typeof mantraDisplay === "string" && mantraDisplay.includes("**")
-              ? renderTextWithBold(mantraDisplay, styles.mantra, styles.mantraBold)
-              : mantraDisplay}
-          </Text>
+          {renderMantraWithHeadings(
+            mantraDisplay,
+            [styles.mantra, scaled.mantra],
+            styles.mantraBold,
+            styles.mantraHeading
+          )}
           {isLastNamasPage ? (
             <Text style={[styles.mantra, styles.mantraLastLineRight, scaled.mantra]}>
               {mantraLines[3]}
@@ -209,19 +246,17 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
   const [meaningExpanded, setMeaningExpanded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
-  const [tocVisible, setTocVisible] = useState(false);
   const [hintIndex, setHintIndex] = useState(0);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const autoSlideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const {
     fontSize,
-    setFontSize,
     setLastSection,
     refreshStreak,
+    preferencesLoaded,
     hintsSeen,
     markHintsSeen,
-    showHintsAgain,
-    reminder,
-    setReminder,
+    autoSlideEnabled,
   } = useApp();
   const fontScale = FONT_SCALE[fontSize];
 
@@ -263,8 +298,51 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
   }, [stopAndUnload]);
 
   const sectionIndex = currentPage > 0 ? currentPage - 1 : -1;
-  const audioSource = getSectionAudio(sectionIndex);
-  const hasAudio = audioSource !== undefined;
+  const audioTracks = getSectionAudioTracks(sectionIndex);
+  const hasAudio = audioTracks.length > 0;
+
+  const playNextTrackRef = useRef<((trackIndex: number) => Promise<void>) | null>(null);
+
+  const playTrack = useCallback(
+    async (trackIndex: number) => {
+      if (trackIndex >= audioTracks.length) {
+        await stopAndUnload();
+        return;
+      }
+      const source = audioTracks[trackIndex];
+      try {
+        const { sound } = await Audio.Sound.createAsync(source, {
+          shouldPlay: true,
+        });
+        soundRef.current = sound;
+        setIsPlaying(true);
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (
+            "isLoaded" in status &&
+            status.isLoaded &&
+            status.didJustFinish &&
+            !status.isPlaying
+          ) {
+            const nextIndex = trackIndex + 1;
+            if (nextIndex < audioTracks.length) {
+              sound.unloadAsync().catch(() => {});
+              soundRef.current = null;
+              playNextTrackRef.current?.(nextIndex);
+            } else {
+              stopAndUnload();
+            }
+          }
+        });
+      } catch (_) {
+        setIsPlaying(false);
+      } finally {
+        setAudioLoading(false);
+      }
+    },
+    [audioTracks, stopAndUnload]
+  );
+
+  playNextTrackRef.current = playTrack;
 
   const handlePlayPause = useCallback(async () => {
     if (!hasAudio) return;
@@ -273,30 +351,9 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
       return;
     }
     setAudioLoading(true);
-    try {
-      await stopAndUnload();
-      const { sound } = await Audio.Sound.createAsync(
-        audioSource as number,
-        { shouldPlay: true }
-      );
-      soundRef.current = sound;
-      setIsPlaying(true);
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (
-          "isLoaded" in status &&
-          status.isLoaded &&
-          status.didJustFinish &&
-          !status.isPlaying
-        ) {
-          stopAndUnload();
-        }
-      });
-    } catch (_) {
-      setIsPlaying(false);
-    } finally {
-      setAudioLoading(false);
-    }
-  }, [hasAudio, isPlaying, audioLoading, audioSource, stopAndUnload]);
+    await stopAndUnload();
+    await playTrack(0);
+  }, [hasAudio, isPlaying, audioLoading, playTrack, stopAndUnload]);
 
   useEffect(() => {
     stopAndUnload();
@@ -325,6 +382,33 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
   goNextRef.current = goNext;
   goPrevRef.current = goPrev;
 
+  // Auto-slide: advance page after duration based on content length
+  useEffect(() => {
+    if (autoSlideTimerRef.current) {
+      clearTimeout(autoSlideTimerRef.current);
+      autoSlideTimerRef.current = null;
+    }
+    if (!autoSlideEnabled || currentPage >= TOTAL_PAGES - 1) return;
+    const section = currentPage > 0 ? sandhyavandanamSections[currentPage - 1] : null;
+    let contentLen = 0;
+    if (currentPage === 0) {
+      contentLen = opening.length + suklamBaradaram.length + gurushakshath.length;
+    } else if (section) {
+      contentLen = (section.mantra?.length ?? 0) + (section.kriya?.length ?? 0);
+    }
+    const durationMs = Math.min(90000, Math.max(6000, Math.round((contentLen / 25) * 1000)));
+    autoSlideTimerRef.current = setTimeout(() => {
+      autoSlideTimerRef.current = null;
+      goNext();
+    }, durationMs);
+    return () => {
+      if (autoSlideTimerRef.current) {
+        clearTimeout(autoSlideTimerRef.current);
+        autoSlideTimerRef.current = null;
+      }
+    };
+  }, [currentPage, autoSlideEnabled]);
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
@@ -340,6 +424,8 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
     })
   ).current;
 
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isLandscape = windowWidth > windowHeight;
   const canGoPrev = currentPage > 0;
   const canGoNext = currentPage < TOTAL_PAGES - 1;
   const currentSection =
@@ -365,18 +451,19 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
           ]}
         />
       </View>
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, isLandscape && styles.topBarLandscape]}>
         <Pressable
           onPress={() => navigation.goBack()}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
         >
-          <Text style={styles.backBtnText}>← Contents</Text>
+          <Text style={[styles.backBtnText, isLandscape && styles.backBtnTextLandscape]}>← Contents</Text>
         </Pressable>
         <Pressable
           onPress={handlePlayPause}
           disabled={!hasAudio}
           style={({ pressed }) => [
             styles.speakerBtn,
+            isLandscape && styles.speakerBtnLandscape,
             !hasAudio && styles.speakerBtnDisabled,
             pressed && hasAudio && styles.pressed,
           ]}
@@ -385,58 +472,57 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
           {audioLoading ? (
             <ActivityIndicator size="small" color={colors.goldLight} />
           ) : (
-            <Text style={[styles.speakerIcon, !hasAudio && styles.speakerIconDisabled]}>
+            <Text style={[styles.speakerIcon, isLandscape && styles.speakerIconLandscape, !hasAudio && styles.speakerIconDisabled]}>
               {isPlaying ? "⏹" : "🔊"}
             </Text>
           )}
         </Pressable>
       </View>
 
-      <View
-        style={[styles.contentHalf, !kriyaAvailable && styles.contentHalfFull]}
-        {...panResponder.panHandlers}
-      >
-        <View style={styles.bookPage}>
-          <ScrollView
-            style={styles.pageScroll}
-            contentContainerStyle={styles.pageScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <BookPageContent
-              pageIndex={currentPage}
-              meaningExpanded={meaningExpanded}
-              onToggleMeaning={() => setMeaningExpanded((e) => !e)}
-              fontScale={fontScale}
-            />
-          </ScrollView>
-          <Text style={styles.swipeCue}>← Swipe to turn page</Text>
+      <View style={[styles.mainContentWrapper, isLandscape && styles.mainContentWrapperLandscape]}>
+        <View
+          style={[
+            styles.contentHalf,
+            !kriyaAvailable && styles.contentHalfFull,
+            isLandscape && styles.contentHalfLandscape,
+          ]}
+          {...panResponder.panHandlers}
+        >
+          <View style={styles.bookPage}>
+            <ScrollView
+              style={styles.pageScroll}
+              contentContainerStyle={styles.pageScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <BookPageContent
+                pageIndex={currentPage}
+                meaningExpanded={meaningExpanded}
+                onToggleMeaning={() => setMeaningExpanded((e) => !e)}
+                fontScale={fontScale}
+              />
+            </ScrollView>
+            <Text style={styles.swipeCue}>← Swipe to turn page</Text>
+          </View>
         </View>
-      </View>
 
-      {kriyaAvailable ? (
-        <View style={styles.kriyaHalf}>
-          <Text style={styles.kriyaLabel}>క్రియ</Text>
-          <ScrollView
-            style={styles.kriyaScroll}
-            contentContainerStyle={styles.kriyaScrollContent}
-            showsVerticalScrollIndicator={true}
-          >
-            <Text style={[styles.kriyaText, { fontSize: 15 * fontScale, lineHeight: 24 * fontScale }]}>
-              {kriyaDisplay}
-            </Text>
-          </ScrollView>
-        </View>
-      ) : null}
+        {kriyaAvailable ? (
+          <View style={[styles.kriyaHalf, isLandscape && styles.kriyaHalfLandscape]}>
+            <Text style={styles.kriyaLabel}>క్రియ</Text>
+            <ScrollView
+              style={styles.kriyaScroll}
+              contentContainerStyle={styles.kriyaScrollContent}
+              showsVerticalScrollIndicator={true}
+            >
+              <Text style={[styles.kriyaText, { fontSize: 15 * fontScale, lineHeight: 24 * fontScale }]}>
+                {kriyaDisplay}
+              </Text>
+            </ScrollView>
+          </View>
+        ) : null}
+      </View>
 
       {/* Bottom nav bar */}
       <View style={styles.navBar}>
-        <Pressable
-          onPress={() => setTocVisible(true)}
-          style={({ pressed }) => [styles.navBarIconBtn, pressed && styles.pressed]}
-          accessibilityLabel="Sections"
-        >
-          <Text style={styles.navBarIconBtnText}>☰</Text>
-        </Pressable>
         <Pressable
           onPress={goPrev}
           disabled={!canGoPrev}
@@ -478,91 +564,11 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
         </Pressable>
       </View>
 
-      <Modal visible={tocVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setTocVisible(false)} />
-          <View style={styles.tocModal}>
-            <Text style={styles.tocModalTitle}>విషయ సూచిక</Text>
-            <Text style={styles.tocSectionLabel}>Font size</Text>
-            <View style={styles.fontSizeRow}>
-              {(["small", "medium", "large"] as const).map((size) => (
-                <Pressable
-                  key={size}
-                  style={[
-                    styles.fontSizeBtn,
-                    fontSize === size && styles.fontSizeBtnActive,
-                  ]}
-                  onPress={() => setFontSize(size)}
-                >
-                  <Text
-                    style={[
-                      styles.fontSizeBtnText,
-                      fontSize === size && styles.fontSizeBtnTextActive,
-                    ]}
-                  >
-                    {size === "small" ? "Small" : size === "medium" ? "Medium" : "Large"}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            <Text style={styles.tocSectionLabel}>Daily reminder</Text>
-            <Pressable
-              style={[
-                styles.reminderBtn,
-                reminder.enabled && styles.reminderBtnActive,
-              ]}
-              onPress={() =>
-                setReminder(!reminder.enabled, reminder.hour, reminder.minute)
-              }
-            >
-              <Text style={styles.reminderBtnText}>
-                {reminder.enabled
-                  ? `On – ${reminder.hour}:${String(reminder.minute).padStart(2, "0")} (సంధ్యావందనం)`
-                  : "Off – Tap to enable"}
-              </Text>
-            </Pressable>
-            <Text style={styles.tocSectionLabel}>Tips</Text>
-            <Pressable
-              style={({ pressed }) => [styles.showHintsAgainBtn, pressed && styles.pressed]}
-              onPress={() => {
-                showHintsAgain();
-                setHintIndex(0);
-                setTocVisible(false);
-              }}
-            >
-              <Text style={styles.showHintsAgainBtnText}>
-                ఎలా వాడాలి మళ్ళీ చూడండి / Show tips again
-              </Text>
-            </Pressable>
-            <FlatList
-              data={sandhyavandanamSections}
-              keyExtractor={(_, i) => String(i)}
-              renderItem={({ item, index }) => (
-                <Pressable
-                  style={({ pressed }) => [styles.tocItem, pressed && styles.pressed]}
-                  onPress={() => {
-                    setCurrentPage(index + 1);
-                    setTocVisible(false);
-                  }}
-                >
-                  <Text style={styles.tocItemText} numberOfLines={1}>{item.titleTe}</Text>
-                </Pressable>
-              )}
-              style={styles.tocList}
-            />
-            <Pressable style={styles.tocCloseBtn} onPress={() => setTocVisible(false)}>
-              <Text style={styles.tocCloseText}>Close</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      {!hintsSeen && (
+      {preferencesLoaded && !hintsSeen && (
         <Modal visible={hintIndex < HINTS_LENGTH} transparent animationType="fade">
           <View style={styles.hintOverlay}>
             <View style={styles.hintCard}>
-              <Text style={styles.hintTitle}>ఎలా వాడాలి</Text>
-              <Text style={styles.hintSubtitle}>How to use</Text>
+              <Text style={styles.hintTitle}>How to use</Text>
               <View style={styles.hintStepIndicator}>
                 {[0, 1, 2, 3].map((i) => (
                   <View
@@ -577,16 +583,10 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
               </View>
               <Text style={styles.hintText}>
                 {[
-                  "పేజీలు మార్చడానికి ఎడమ / కుడి స్వైప్ చేయండి",
-                  "అర్థం చూడడానికి 'అర్థం' పై టాప్ చేయండి",
-                  "ఆడియో వినడానికి స్పీకర్ నొక్కండి"
-                ][hintIndex]}
-              </Text>
-              <Text style={styles.hintTextEn}>
-                {[
                   "Swipe left or right to turn pages",
                   "Tap 'అర్థం' to expand meaning",
-                  "Tap speaker icon to play section audio"
+                  "Tap speaker icon to play section audio",
+                  "Turn on 'Auto slide' in Preferences (from Contents) to advance pages automatically by content length",
                 ][hintIndex]}
               </Text>
               <Pressable
@@ -597,12 +597,9 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
                 }}
               >
                 <Text style={styles.hintBtnText}>
-                  {hintIndex < 3 ? "తర్వాత →" : "పూర్తి"}
+                  {hintIndex < 3 ? "Next" : "Done"}
                 </Text>
               </Pressable>
-              <Text style={styles.hintBtnEn}>
-                {hintIndex < 3 ? "Next" : "Done"}
-              </Text>
             </View>
           </View>
         </Modal>
@@ -636,6 +633,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceLight,
   },
+  topBarLandscape: {
+    paddingTop: 10,
+    paddingBottom: 6,
+    paddingHorizontal: 12,
+  },
   backBtn: {
     paddingVertical: 6,
     paddingHorizontal: 4,
@@ -646,6 +648,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
+  backBtnTextLandscape: {
+    fontSize: 13,
+  },
   speakerBtn: {
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -653,11 +658,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  speakerBtnLandscape: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    minWidth: 36,
+  },
   speakerBtnDisabled: {
     opacity: 0.4,
   },
   speakerIcon: {
     fontSize: 22,
+  },
+  speakerIconLandscape: {
+    fontSize: 18,
   },
   speakerIconDisabled: {
     opacity: 0.6,
@@ -669,10 +682,22 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 8,
   },
+  mainContentWrapper: {
+    flex: 1,
+    minHeight: 0,
+  },
+  mainContentWrapperLandscape: {
+    flexDirection: "row",
+  },
   contentHalf: {
     flex: 65,
     paddingHorizontal: 16,
     paddingTop: 12,
+    paddingBottom: 8,
+  },
+  contentHalfLandscape: {
+    flex: 1,
+    minWidth: 0,
     paddingBottom: 8,
   },
   contentHalfFull: {
@@ -750,6 +775,10 @@ const styles = StyleSheet.create({
   mantraBold: {
     fontWeight: "700",
   },
+  mantraHeading: {
+    fontWeight: "700",
+    color: colors.text,
+  },
   mantraLastLineRight: {
     alignSelf: "flex-end",
     textAlign: "right",
@@ -792,21 +821,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.gold,
   },
-  navBarIconBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: colors.surface,
-    borderRadius: 6,
-    minWidth: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  navBarIconBtnText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: colors.goldLight,
-  },
   navBtn: {
     paddingVertical: 6,
     paddingHorizontal: 10,
@@ -833,99 +847,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textOnDarkMuted,
     fontWeight: "600",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    padding: 24,
-  },
-  tocModal: {
-    backgroundColor: colors.paper,
-    borderRadius: 12,
-    maxHeight: "80%",
-    padding: 16,
-  },
-  tocModalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.accent,
-    marginBottom: 12,
-  },
-  tocSectionLabel: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginBottom: 6,
-  },
-  fontSizeRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 12,
-  },
-  fontSizeBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: colors.paperDark,
-  },
-  fontSizeBtnActive: {
-    backgroundColor: colors.gold,
-  },
-  fontSizeBtnText: {
-    fontSize: 13,
-    color: colors.text,
-  },
-  fontSizeBtnTextActive: {
-    fontWeight: "600",
-    color: colors.text,
-  },
-  reminderBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: colors.paperDark,
-    marginBottom: 12,
-  },
-  reminderBtnActive: {
-    backgroundColor: colors.surfaceLight,
-  },
-  reminderBtnText: {
-    fontSize: 14,
-    color: colors.text,
-  },
-  showHintsAgainBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: colors.paperDark,
-    marginBottom: 12,
-  },
-  showHintsAgainBtnText: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  tocList: { maxHeight: 400 },
-  tocItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  tocItemText: {
-    fontSize: 15,
-    color: colors.text,
-  },
-  tocCloseBtn: {
-    marginTop: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-  },
-  tocCloseText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.goldLight,
   },
   hintOverlay: {
     flex: 1,
@@ -1016,6 +937,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 16,
+  },
+  kriyaHalfLandscape: {
+    flex: 1,
+    minWidth: 0,
+    borderTopWidth: 0,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.gold,
   },
   kriyaScroll: {
     flex: 1,

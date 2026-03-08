@@ -13,16 +13,20 @@ import {
   setHintsSeen as persistHintsSeen,
   getReminder,
   setReminder as persistReminder,
+  getAutoSlideEnabled,
+  setAutoSlideEnabled as persistAutoSlideEnabled,
 } from "../storage/preferences";
 import { scheduleDailyReminder, cancelReminder } from "../notifications/reminder";
 
 type AppState = {
+  preferencesLoaded: boolean;
   fontSize: FontSize;
   lastSection: { page: number; title: string } | null;
   streak: number;
   introSeen: boolean;
   hintsSeen: boolean;
   reminder: { enabled: boolean; hour: number; minute: number };
+  autoSlideEnabled: boolean;
 };
 
 type AppContextValue = AppState & {
@@ -35,15 +39,18 @@ type AppContextValue = AppState & {
   showHintsAgain: () => Promise<void>;
   setReminder: (enabled: boolean, hour: number, minute: number) => Promise<void>;
   refreshReminder: () => Promise<void>;
+  setAutoSlideEnabled: (v: boolean) => Promise<void>;
 };
 
 const defaultState: AppState = {
+  preferencesLoaded: false,
   fontSize: "medium",
   lastSection: null,
   streak: 0,
   introSeen: false,
   hintsSeen: false,
   reminder: { enabled: false, hour: 6, minute: 0 },
+  autoSlideEnabled: false,
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -52,21 +59,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(defaultState);
 
   const load = useCallback(async () => {
-    const [fontSize, lastSection, streak, introSeen, hintsSeen, reminder] = await Promise.all([
+    const [fontSize, lastSection, streak, introSeen, hintsSeen, reminder, autoSlideEnabled] = await Promise.all([
       getFontSize(),
       getLastSection(),
       getStreak(),
       getIntroSeen(),
       getHintsSeen(),
       getReminder(),
+      getAutoSlideEnabled(),
     ]);
     setState({
+      preferencesLoaded: true,
       fontSize,
       lastSection,
       streak: streak.count,
       introSeen,
       hintsSeen,
       reminder,
+      autoSlideEnabled,
     });
   }, []);
 
@@ -124,6 +134,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({ ...s, reminder }));
   }, []);
 
+  const setAutoSlideEnabled = useCallback(async (v: boolean) => {
+    await persistAutoSlideEnabled(v);
+    setState((s) => ({ ...s, autoSlideEnabled: v }));
+  }, []);
+
   const value: AppContextValue = {
     ...state,
     setFontSize,
@@ -135,6 +150,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     showHintsAgain,
     setReminder,
     refreshReminder,
+    setAutoSlideEnabled,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
