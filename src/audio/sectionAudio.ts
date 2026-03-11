@@ -44,3 +44,6 @@ export function getSectionAudioTracks(sectionIndex: number): number[] {
   const one = getSectionAudio(sectionIndex);
   return one !== undefined ? [one] : [];
 }
+
+/** Inline audio for specific mantra lines (e.g. పశ్చాత్ హస్తే in Arghya). */
+export const INLINE_AUDIO_SUB1 = require("./sub1.mp3");

@@ -15,6 +15,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Audio } from "expo-av";
+import { useKeepAwake } from "expo-keep-awake";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../types/navigation";
@@ -26,7 +27,7 @@ import {
   sandhyavandanamSections,
 } from "../content/sandhyavandanamKrishnaYajurveda";
 import type { Section } from "../content/sandhyavandanamKrishnaYajurveda";
-import { getSectionAudioTracks } from "../audio/sectionAudio";
+import { getSectionAudioTracks, INLINE_AUDIO_SUB1 } from "../audio/sectionAudio";
 import { useApp } from "../context/AppContext";
 import type { FontSize } from "../storage/keys";
 
@@ -87,39 +88,68 @@ function renderTextWithBold(
   ));
 }
 
+type InlineAudioConfig = {
+  lineContains: string;
+  asset: number;
+  onPlay: (asset: number) => void;
+};
+
 /** Renders mantra string with heading lines (lines ending with ":") highlighted. */
 function renderMantraWithHeadings(
   mantraDisplay: string,
   baseStyle: object,
   boldStyle: object,
-  headingStyle: object
+  headingStyle: object,
+  inlineAudio?: InlineAudioConfig
 ): React.ReactNode {
   const lines = mantraDisplay.split("\n");
   return lines.map((line, i) => {
     const trimmed = line.trim();
     const isHeading = trimmed.length > 0 && trimmed.endsWith(":");
-    if (trimmed === "") {
-      return <Text key={i} style={baseStyle}>{"\n"}</Text>;
-    }
-    if (isHeading) {
+    const showInlinePlay =
+      inlineAudio && trimmed.includes(inlineAudio.lineContains);
+
+    const lineContent = (() => {
+      if (trimmed === "") {
+        return <Text style={baseStyle}>{"\n"}</Text>;
+      }
+      if (isHeading) {
+        return (
+          <Text style={[baseStyle, headingStyle]}>
+            {line}
+          </Text>
+        );
+      }
+      if (line.includes("**")) {
+        return (
+          <Text style={baseStyle}>
+            {renderTextWithBold(line, baseStyle, boldStyle)}
+          </Text>
+        );
+      }
       return (
-        <Text key={i} style={[baseStyle, headingStyle]}>
+        <Text style={baseStyle}>
           {line}
         </Text>
       );
-    }
-    if (line.includes("**")) {
+    })();
+
+    if (showInlinePlay && inlineAudio) {
       return (
-        <Text key={i} style={baseStyle}>
-          {renderTextWithBold(line, baseStyle, boldStyle)}
-        </Text>
+        <View key={i} style={styles.inlineAudioRow}>
+          <View style={styles.inlineAudioTextWrap}>{lineContent}</View>
+          <Pressable
+            onPress={() => inlineAudio.onPlay(inlineAudio.asset)}
+            style={styles.inlinePlayBtn}
+            accessibilityLabel="Play audio"
+          >
+            <Text style={styles.inlinePlayIcon}>🔊</Text>
+          </Pressable>
+        </View>
       );
     }
-    return (
-      <Text key={i} style={baseStyle}>
-        {line}
-      </Text>
-    );
+
+    return <React.Fragment key={i}>{lineContent}</React.Fragment>;
   });
 }
 
@@ -128,11 +158,15 @@ function BookPageContent({
   meaningExpanded,
   onToggleMeaning,
   fontScale = 1,
+  inlineAudioForLine,
+  onPlayInlineAudio,
 }: {
   pageIndex: number;
   meaningExpanded: boolean;
   onToggleMeaning: () => void;
   fontScale?: number;
+  inlineAudioForLine?: { lineContains: string; asset: number };
+  onPlayInlineAudio?: (asset: number) => void;
 }) {
   const scaled = useMemo(
     () => ({
@@ -205,7 +239,14 @@ function BookPageContent({
             mantraDisplay,
             [styles.mantra, scaled.mantra],
             styles.mantraBold,
-            styles.mantraHeading
+            styles.mantraHeading,
+            inlineAudioForLine && onPlayInlineAudio
+              ? {
+                  lineContains: inlineAudioForLine.lineContains,
+                  asset: inlineAudioForLine.asset,
+                  onPlay: onPlayInlineAudio,
+                }
+              : undefined
           )}
           {isLastNamasPage ? (
             <Text style={[styles.mantra, styles.mantraLastLineRight, scaled.mantra]}>
@@ -238,6 +279,7 @@ function BookPageContent({
 }
 
 export default function SandhyavandanamVidhanam({ navigation }: Props) {
+  useKeepAwake();
   const route = useRoute<RouteProp<RootStackParamList, "SandhyavandanamVidhanam">>();
   const initialPage = route.params?.initialPage ?? 0;
   const [currentPage, setCurrentPage] = useState(() =>
@@ -249,6 +291,8 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
   const [hintIndex, setHintIndex] = useState(0);
   const soundRef = useRef<Audio.Sound | null>(null);
   const autoSlideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pageScrollRef = useRef<ScrollView>(null);
+  const kriyaScrollRef = useRef<ScrollView>(null);
   const {
     fontSize,
     setLastSection,
@@ -269,6 +313,11 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
       }
     }
   }, [currentPage, setLastSection, refreshStreak]);
+
+  useEffect(() => {
+    pageScrollRef.current?.scrollTo({ y: 0, animated: false });
+    kriyaScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [currentPage]);
 
   useEffect(() => {
     Audio.setAudioModeAsync({
@@ -354,6 +403,30 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
     await stopAndUnload();
     await playTrack(0);
   }, [hasAudio, isPlaying, audioLoading, playTrack, stopAndUnload]);
+
+  const handlePlayInlineAudio = useCallback(
+    async (asset: number) => {
+      await stopAndUnload();
+      try {
+        const { sound } = await Audio.Sound.createAsync(asset, {
+          shouldPlay: true,
+        });
+        soundRef.current = sound;
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (
+            "isLoaded" in status &&
+            status.isLoaded &&
+            status.didJustFinish &&
+            !status.isPlaying
+          ) {
+            sound.unloadAsync().catch(() => {});
+            soundRef.current = null;
+          }
+        });
+      } catch (_) {}
+    },
+    [stopAndUnload]
+  );
 
   useEffect(() => {
     stopAndUnload();
@@ -490,6 +563,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
         >
           <View style={styles.bookPage}>
             <ScrollView
+              ref={pageScrollRef}
               style={styles.pageScroll}
               contentContainerStyle={styles.pageScrollContent}
               showsVerticalScrollIndicator={false}
@@ -499,6 +573,18 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
                 meaningExpanded={meaningExpanded}
                 onToggleMeaning={() => setMeaningExpanded((e) => !e)}
                 fontScale={fontScale}
+                inlineAudioForLine={
+                  currentPage > 0 &&
+                  sandhyavandanamSections[currentPage - 1].titleTe.includes(
+                    "అర్ఘ్యప్రదానము"
+                  )
+                    ? {
+                        lineContains: "పశ్చాత్ హస్తే జలమాదాయ ఉత్థాయ",
+                        asset: INLINE_AUDIO_SUB1,
+                      }
+                    : undefined
+                }
+                onPlayInlineAudio={handlePlayInlineAudio}
               />
             </ScrollView>
             <Text style={styles.swipeCue}>← Swipe to turn page</Text>
@@ -509,6 +595,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
           <View style={[styles.kriyaHalf, isLandscape && styles.kriyaHalfLandscape]}>
             <Text style={styles.kriyaLabel}>క్రియ</Text>
             <ScrollView
+              ref={kriyaScrollRef}
               style={styles.kriyaScroll}
               contentContainerStyle={styles.kriyaScrollContent}
               showsVerticalScrollIndicator={true}
@@ -778,6 +865,24 @@ const styles = StyleSheet.create({
   mantraHeading: {
     fontWeight: "700",
     color: colors.text,
+  },
+  inlineAudioRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginVertical: 2,
+  },
+  inlineAudioTextWrap: {
+    flex: 1,
+  },
+  inlinePlayBtn: {
+    padding: 6,
+    minWidth: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inlinePlayIcon: {
+    fontSize: 18,
   },
   mantraLastLineRight: {
     alignSelf: "flex-end",

@@ -2,7 +2,7 @@
   "cli": {
     "version": ">= 13.0.0"
   },
-  "build": {
+  "build": {  
     "development": {
       "developmentClient": true,
       "distribution": "internal"
@@ -15,7 +15,7 @@
     },
     "production": {
       "android": {
-        "buildType": "apk"
+        "buildType": "app-bundle"
       }
     }
   },
