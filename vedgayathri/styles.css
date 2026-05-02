@@ -1,0 +1,204 @@
+/* Palette aligned with main app theme */
+:root {
+  --bg-deep: #0f2e1e;
+  --bg-surface: #1a472a;
+  --bg-card: #245c38;
+  --paper: #e8e4d9;
+  --paper-muted: #c4b896;
+  --gold: #c9a227;
+  --gold-light: #e6c84c;
+  --text: #1a1a1a;
+  --text-muted: #5c5c5c;
+  --text-on-dark: #f5f0e6;
+  --text-on-dark-muted: #b8b0a0;
+  --accent: #2d6a4f;
+  --font-serif: "Cormorant Garamond", "Georgia", serif;
+  --font-sans: "Source Sans 3", system-ui, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+  line-height: 1.65;
+  color: var(--text);
+  background: var(--paper);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--bg-deep);
+}
+
+.site-header {
+  background: linear-gradient(160deg, var(--bg-deep) 0%, var(--bg-surface) 55%, var(--bg-card) 100%);
+  color: var(--text-on-dark);
+  padding: 3rem 1.5rem 4rem;
+  text-align: center;
+  border-bottom: 3px solid var(--gold);
+}
+
+.site-header p.lead {
+  font-size: 1.15rem;
+  color: var(--text-on-dark-muted);
+  max-width: 36rem;
+  margin: 0.75rem auto 0;
+}
+
+.om-mark {
+  font-size: 2rem;
+  color: var(--gold-light);
+  letter-spacing: 0.15em;
+  margin-bottom: 0.5rem;
+}
+
+.site-header h1 {
+  margin: 0;
+  font-size: clamp(1.85rem, 4vw, 2.75rem);
+  color: var(--gold-light);
+}
+
+.wrap {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+main {
+  padding: 2.5rem 0 4rem;
+}
+
+section {
+  margin-bottom: 2.75rem;
+}
+
+section h2 {
+  font-size: 1.65rem;
+  color: var(--bg-deep);
+  border-bottom: 2px solid var(--gold);
+  padding-bottom: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+section h3 {
+  font-size: 1.2rem;
+  margin: 1.5rem 0 0.5rem;
+  color: var(--accent);
+}
+
+p {
+  margin: 0 0 1rem;
+}
+
+ul {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+}
+
+li {
+  margin-bottom: 0.5rem;
+}
+
+.mantra-block {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  background: var(--bg-surface);
+  color: var(--text-on-dark);
+  padding: 1.25rem 1.5rem;
+  border-radius: 8px;
+  border-left: 4px solid var(--gold);
+  margin: 1.25rem 0;
+  line-height: 1.8;
+}
+
+.mantra-block cite {
+  display: block;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  font-style: normal;
+  color: var(--text-on-dark-muted);
+  font-family: var(--font-sans);
+}
+
+.callout {
+  background: linear-gradient(135deg, #f0ebe0 0%, var(--paper) 100%);
+  border: 1px solid var(--paper-muted);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.callout strong {
+  color: var(--bg-deep);
+}
+
+.site-footer {
+  text-align: center;
+  padding: 2rem 1rem;
+  background: var(--bg-deep);
+  color: var(--text-on-dark-muted);
+  font-size: 0.9rem;
+}
+
+.site-footer a {
+  color: var(--gold-light);
+}
+
+.policy-back {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+}
+
+.policy-back a {
+  color: var(--gold-light);
+}
+
+.policy-effective {
+  max-width: none;
+  margin-top: 0.5rem !important;
+  font-size: 1rem !important;
+}
+
+.policy-body section {
+  margin-bottom: 2rem;
+}
+
+.policy-body section h2 {
+  font-size: 1.35rem;
+  margin-top: 1.75rem;
+}
+
+.policy-body section:first-of-type h2 {
+  margin-top: 0;
+}
+
+.policy-consent {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--paper-muted);
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
