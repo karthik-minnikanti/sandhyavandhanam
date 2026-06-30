@@ -16,9 +16,9 @@ const sectionAudioAssets: (number | undefined)[] = [
   require("./8.mp3"),
   require("./9.mp3"),
   require("./10.mp3"),
-  require("./11.mp3"),
+  require("./11.mp3"), // 10: మంత్రాచమనం — ప్రాతః కాలమున
+  require("./20.mp3"), // 11: మంత్రాచమనం — మధ్యాహ్న కాలమున
   undefined, // 12: మంత్రాచమనం — సాయం కాలమున
-  undefined,
   require("./14.mp3"),
   require("./15.mp3"),
   require("./16.mp3"),
@@ -47,3 +47,6 @@ export function getSectionAudioTracks(sectionIndex: number): number[] {
 
 /** Inline audio for specific mantra lines (e.g. పశ్చాత్ హస్తే in Arghya). */
 export const INLINE_AUDIO_SUB1 = require("./sub1.mp3");
+
+/** సూర్యోపస్థానమ్ — మధ్యాహ్నే block only (not full section). */
+export const INLINE_AUDIO_SURYOPASTHANAM_MADHYAHNA = require("./21.mp3");

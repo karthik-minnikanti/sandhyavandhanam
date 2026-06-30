@@ -27,7 +27,11 @@ import {
   sandhyavandanamSections,
 } from "../content/sandhyavandanamKrishnaYajurveda";
 import type { Section } from "../content/sandhyavandanamKrishnaYajurveda";
-import { getSectionAudioTracks, INLINE_AUDIO_SUB1 } from "../audio/sectionAudio";
+import {
+  getSectionAudioTracks,
+  INLINE_AUDIO_SUB1,
+  INLINE_AUDIO_SURYOPASTHANAM_MADHYAHNA,
+} from "../audio/sectionAudio";
 import { useApp } from "../context/AppContext";
 import type { FontSize } from "../storage/keys";
 
@@ -574,14 +578,25 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
                 onToggleMeaning={() => setMeaningExpanded((e) => !e)}
                 fontScale={fontScale}
                 inlineAudioForLine={
-                  currentPage > 0 &&
-                  sandhyavandanamSections[currentPage - 1].titleTe.includes(
-                    "అర్ఘ్యప్రదానము"
-                  )
-                    ? {
-                        lineContains: "పశ్చాత్ హస్తే జలమాదాయ ఉత్థాయ",
-                        asset: INLINE_AUDIO_SUB1,
-                      }
+                  currentPage > 0
+                    ? (() => {
+                        const titleTe =
+                          sandhyavandanamSections[currentPage - 1].titleTe;
+                        if (titleTe.includes("అర్ఘ్యప్రదానము")) {
+                          return {
+                            lineContains:
+                              "పశ్చాత్ హస్తే జలమాదాయ ఉత్థాయ",
+                            asset: INLINE_AUDIO_SUB1,
+                          };
+                        }
+                        if (titleTe.includes("సూర్యోపస్థానమ్")) {
+                          return {
+                            lineContains: "మధ్యాహ్నే",
+                            asset: INLINE_AUDIO_SURYOPASTHANAM_MADHYAHNA,
+                          };
+                        }
+                        return undefined;
+                      })()
                     : undefined
                 }
                 onPlayInlineAudio={handlePlayInlineAudio}
