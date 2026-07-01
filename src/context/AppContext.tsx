@@ -42,6 +42,8 @@ type AppContextValue = AppState & {
   setAutoSlideEnabled: (v: boolean) => Promise<void>;
 };
 
+const screenshotMode = process.env.EXPO_PUBLIC_SCREENSHOT_MODE === "1";
+
 const defaultState: AppState = {
   preferencesLoaded: false,
   fontSize: "medium",
@@ -73,8 +75,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fontSize,
       lastSection,
       streak: streak.count,
-      introSeen,
-      hintsSeen,
+      introSeen: screenshotMode ? true : introSeen,
+      hintsSeen: screenshotMode ? true : hintsSeen,
       reminder,
       autoSlideEnabled,
     });

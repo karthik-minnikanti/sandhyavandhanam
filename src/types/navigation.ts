@@ -4,4 +4,5 @@ export type RootStackParamList = {
   Preferences: undefined;
   SandhyavandanamVidhanam: { initialPage?: number } | undefined;
   YagnopaveetamVidhi: undefined;
+  LalithaSahasranamam: { initialPage?: number } | undefined;
 };

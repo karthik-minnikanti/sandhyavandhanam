@@ -25,6 +25,7 @@ export default function BookCover({ navigation }: Props) {
   const { streak } = useApp();
 
   useEffect(() => {
+    if (process.env.EXPO_PUBLIC_SCREENSHOT_MODE === "1") return;
     timerRef.current = setTimeout(() => {
       navigation.navigate("TableOfContents");
     }, AUTO_OPEN_DELAY_MS);
@@ -65,6 +66,7 @@ export default function BookCover({ navigation }: Props) {
           <View style={styles.subtitleBlock}>
             <Text style={styles.subtitle}>సంధ్యావందన విధానం</Text>
             <Text style={styles.subtitle}>యజ్ఞోపవీత ధారణ విధిః</Text>
+            <Text style={styles.subtitle}>శ్రీ లలితా సహస్ర నామ స్తోత్రం</Text>
           </View>
           {streak > 0 ? (
             <Text style={styles.streakText}>ॐ {streak} day streak</Text>

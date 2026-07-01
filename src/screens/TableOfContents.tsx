@@ -28,11 +28,20 @@ const chapters = [
     titleEn: "Yagnopaveetha Dharana Vidhi",
     description: "Sacred thread wearing procedure — full text",
   },
+  {
+    key: "LalithaSahasranamam" as const,
+    titleTe: "శ్రీ లలితా సహస్ర నామ స్తోత్రం",
+    titleEn: "Lalitha Sahasranamam",
+    description: "1000 names — Telugu text & full stotram audio (MS Subbulakshmi Jr)",
+  },
 ];
 
 export default function TableOfContents({ navigation }: Props) {
-  const openSandhyavandanam = (initialPage?: number) => {
-    navigation.navigate("SandhyavandanamVidhanam", initialPage != null ? { initialPage } : undefined);
+  const openWithPage = (
+    route: "SandhyavandanamVidhanam" | "LalithaSahasranamam",
+    initialPage?: number
+  ) => {
+    navigation.navigate(route, initialPage != null ? { initialPage } : undefined);
   };
 
   return (
@@ -63,8 +72,8 @@ export default function TableOfContents({ navigation }: Props) {
               pressed && styles.chapterCardPressed,
             ]}
             onPress={() =>
-              ch.key === "SandhyavandanamVidhanam"
-                ? openSandhyavandanam()
+              ch.key === "SandhyavandanamVidhanam" || ch.key === "LalithaSahasranamam"
+                ? openWithPage(ch.key)
                 : navigation.navigate(ch.key)
             }
           >

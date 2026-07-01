@@ -2,7 +2,7 @@
   "expo": {
     "name": "VedGayathri",
     "slug": "vedgayathri",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "orientation": "default",
     "icon": "./assets/gayatri-mata.jpg",
     "scheme": "vedgayathri",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.vedgayathri.app",
-      "buildNumber": "2"
+      "buildNumber": "3"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +24,7 @@
         "backgroundColor": "#1a472a"
       },
       "package": "com.vedgayathri.app",
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "bundler": "metro",
