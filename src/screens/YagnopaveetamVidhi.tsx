@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   LayoutAnimation,
   UIManager,
   Platform,
-  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -24,8 +23,10 @@ import ReaderOnboarding, {
 } from "../components/ReaderOnboarding";
 import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
 import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
+import DeityIconBox from "../components/DeityIconBox";
+import { DEITY_ICONS } from "../content/deityIcons";
 
-const dharanaImage = require("../../assets/dharana.jpg");
+const dharanaImage = DEITY_ICONS.gayatri;
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -41,10 +42,11 @@ function PageContent({ pageIndex }: { pageIndex: number }) {
   if (pageIndex === 0) {
     return (
       <View style={[styles.pageContent, styles.firstPageContent]}>
-        <Image
+        <DeityIconBox
           source={dharanaImage}
+          width={120}
+          aspectRatio={1.33}
           style={styles.dharanaImage}
-          resizeMode="contain"
           accessibilityLabel="Yagnopaveetha Dharana"
         />
         <Text style={styles.opening}>{yagnopaveethaOpening}</Text>
@@ -230,8 +232,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   dharanaImage: {
-    width: 120,
-    height: 160,
     marginBottom: 20,
   },
   opening: {

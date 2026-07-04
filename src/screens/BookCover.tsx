@@ -5,14 +5,15 @@ import {
   Pressable,
   StyleSheet,
   useWindowDimensions,
-  Image,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../types/navigation";
 import { colors } from "../theme/colors";
 import { useApp } from "../context/AppContext";
+import DeityIconBox from "../components/DeityIconBox";
+import { DEITY_ICONS } from "../content/deityIcons";
 
-const gayatriMataImage = require("../../assets/gayatri-mata.jpg");
+const gayatriMataImage = DEITY_ICONS.gayatri;
 const AUTO_OPEN_DELAY_MS = 1500;
 
 type Props = {
@@ -54,10 +55,11 @@ export default function BookCover({ navigation }: Props) {
         <View style={styles.coverInner}>
         <View style={styles.frame}>
           <Text style={styles.om}>ॐ</Text>
-          <Image
+          <DeityIconBox
             source={gayatriMataImage}
+            width={140}
+            aspectRatio={1.25}
             style={styles.gayatriImage}
-            resizeMode="contain"
             accessibilityLabel="Gayatri Mata"
           />
           <View style={styles.divider} />
@@ -136,11 +138,7 @@ const styles = StyleSheet.create({
     fontWeight: "300",
   },
   gayatriImage: {
-    width: 140,
-    height: 175,
     marginBottom: 14,
-    borderRadius: 8,
-    overflow: "hidden",
   },
   divider: {
     width: 48,

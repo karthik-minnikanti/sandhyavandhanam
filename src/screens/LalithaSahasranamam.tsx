@@ -8,7 +8,6 @@ import {
   LayoutAnimation,
   UIManager,
   Platform,
-  Image,
   ActivityIndicator,
 } from "react-native";
 import { Audio } from "expo-av";
@@ -22,20 +21,27 @@ import {
   lalithaSahasranamamSections,
 } from "../content/lalithaSahasranamam";
 import {
-  getLalithaSectionAudioTracks,
+  getLalithaSectionAudioTrackPaths,
   hasLalithaSectionAudio,
   LALITHA_AUDIO_CREDIT,
+  LALITHA_AUDIO_PACK,
 } from "../audio/lalithaSectionAudio";
+import { useContentPacks } from "../context/ContentPackContext";
+import type { AudioUriSource } from "../contentPacks/types";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "../context/AppContext";
 import type { FontSize } from "../storage/keys";
 import ReaderOnboarding, {
   BASIC_READER_ONBOARDING_STEPS,
 } from "../components/ReaderOnboarding";
+import ReaderAudioControl from "../components/ReaderAudioControl";
+import DeityIconBox from "../components/DeityIconBox";
 import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
 import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
 
-const deviImage = require("../../assets/gayatri-mata.jpg");
+import { DEITY_ICONS } from "../content/deityIcons";
+
+const deviImage = DEITY_ICONS.lalitha;
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -64,10 +70,11 @@ function PageContent({ pageIndex, fontScale = 1 }: { pageIndex: number; fontScal
   if (pageIndex === 0) {
     return (
       <View style={[styles.pageContent, styles.firstPageContent]}>
-        <Image
+        <DeityIconBox
           source={deviImage}
+          width={120}
+          aspectRatio={1.33}
           style={styles.deviImage}
-          resizeMode="contain"
           accessibilityLabel="Sri Lalitha Devi"
         />
         <Text style={[styles.opening, scaled.opening]}>{lalithaOpening}</Text>
@@ -111,11 +118,13 @@ export default function LalithaSahasranamam({ navigation }: Props) {
     hintsSeen,
     markHintsSeen,
   } = useApp();
+  const { resolveAudioTracks } = useContentPacks();
   const insets = useSafeAreaInsets();
   const fontScale = FONT_SCALE[fontSize];
   const sectionIndex = currentPage > 0 ? currentPage - 1 : -1;
-  const audioTracks = getLalithaSectionAudioTracks(sectionIndex);
+  const audioTrackPaths = getLalithaSectionAudioTrackPaths(sectionIndex);
   const hasAudio = hasLalithaSectionAudio(sectionIndex);
+  const resolvedTracksRef = useRef<AudioUriSource[]>([]);
 
   useEffect(() => {
     if (!hintsSeen) setHintIndex(0);
@@ -164,11 +173,12 @@ export default function LalithaSahasranamam({ navigation }: Props) {
 
   const playTrack = useCallback(
     async (trackIndex: number) => {
-      if (trackIndex >= audioTracks.length) {
+      const tracks = resolvedTracksRef.current;
+      if (trackIndex >= tracks.length) {
         await stopAndUnload();
         return;
       }
-      const source = audioTracks[trackIndex];
+      const source = tracks[trackIndex];
       try {
         const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true });
         soundRef.current = sound;
@@ -189,7 +199,7 @@ export default function LalithaSahasranamam({ navigation }: Props) {
         setAudioLoading(false);
       }
     },
-    [audioTracks, stopAndUnload]
+    [stopAndUnload]
   );
 
   const handlePlayPause = useCallback(async () => {
@@ -200,8 +210,25 @@ export default function LalithaSahasranamam({ navigation }: Props) {
     }
     setAudioLoading(true);
     await stopAndUnload();
-    await playTrack(0);
-  }, [hasAudio, isPlaying, audioLoading, playTrack, stopAndUnload]);
+    try {
+      resolvedTracksRef.current = await resolveAudioTracks(
+        LALITHA_AUDIO_PACK,
+        audioTrackPaths
+      );
+      await playTrack(0);
+    } catch (_) {
+      setIsPlaying(false);
+      setAudioLoading(false);
+    }
+  }, [
+    hasAudio,
+    isPlaying,
+    audioLoading,
+    playTrack,
+    stopAndUnload,
+    resolveAudioTracks,
+    audioTrackPaths,
+  ]);
 
   useEffect(() => {
     stopAndUnload();
@@ -245,24 +272,13 @@ export default function LalithaSahasranamam({ navigation }: Props) {
         >
           <Text style={styles.backBtnText}>← Contents</Text>
         </Pressable>
-        <Pressable
-          onPress={handlePlayPause}
-          disabled={!hasAudio}
-          style={({ pressed }) => [
-            styles.speakerBtn,
-            !hasAudio && styles.speakerBtnDisabled,
-            pressed && hasAudio && styles.pressed,
-          ]}
-          accessibilityLabel={hasAudio ? "Play section audio" : "No audio"}
-        >
-          {audioLoading ? (
-            <ActivityIndicator size="small" color={colors.goldLight} />
-          ) : (
-            <Text style={[styles.speakerIcon, !hasAudio && styles.speakerIconDisabled]}>
-              {isPlaying ? "⏹" : "🔊"}
-            </Text>
-          )}
-        </Pressable>
+        <ReaderAudioControl
+          packId={LALITHA_AUDIO_PACK}
+          hasAudio={hasAudio}
+          isPlaying={isPlaying}
+          audioLoading={audioLoading}
+          onPlayPause={handlePlayPause}
+        />
       </View>
 
       <View style={styles.contentHalf} {...pageSwipe.panHandlers}>
@@ -397,8 +413,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   deviImage: {
-    width: 120,
-    height: 160,
     marginBottom: 20,
   },
   opening: {

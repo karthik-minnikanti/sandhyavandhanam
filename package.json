@@ -10,6 +10,7 @@
     "build:apk": "eas build --platform android --profile preview",
     "generate:icon": "node scripts/generate-adaptive-icon.js",
     "generate:feature-graphic": "node scripts/generate-feature-graphic.js",
+    "generate:deity-icons": "node scripts/generate-deity-icons.js",
     "capture:screenshots": "node scripts/capture-store-screenshots.js"
   },
   "dependencies": {
@@ -21,6 +22,7 @@
     "expo-asset": "~12.0.12",
     "expo-av": "~16.0.8",
     "expo-constants": "~18.0.13",
+    "expo-file-system": "~19.0.23",
     "expo-font": "~14.0.11",
     "expo-keep-awake": "~15.0.8",
     "expo-linking": "~8.0.11",

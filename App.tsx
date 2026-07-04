@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Linking from "expo-linking";
 import { AppProvider } from "./src/context/AppContext";
+import { ContentPackProvider } from "./src/context/ContentPackContext";
 import BookCover from "./src/screens/BookCover";
 import TableOfContents from "./src/screens/TableOfContents";
 import Preferences from "./src/screens/Preferences";
@@ -47,6 +48,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppProvider>
+        <ContentPackProvider>
         <NavigationContainer linking={linking}>
         <StatusBar style="light" />
         <Stack.Navigator
@@ -64,6 +66,7 @@ export default function App() {
           <Stack.Screen name="LalithaSahasranamam" component={LalithaSahasranamam} />
         </Stack.Navigator>
         </NavigationContainer>
+        </ContentPackProvider>
       </AppProvider>
     </SafeAreaProvider>
   );

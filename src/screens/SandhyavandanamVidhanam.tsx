@@ -27,19 +27,26 @@ import {
 } from "../content/sandhyavandanamKrishnaYajurveda";
 import type { Section } from "../content/sandhyavandanamKrishnaYajurveda";
 import {
-  getSectionAudioTracks,
-  INLINE_AUDIO_SUB1,
-  INLINE_AUDIO_SURYOPASTHANAM_MADHYAHNA,
+  getSectionAudioTrackPaths,
+  INLINE_AUDIO_SUB1_PATH,
+  INLINE_AUDIO_SURYOPASTHANAM_MADHYAHNA_PATH,
+  SANDHYAVANDANAM_AUDIO_PACK,
 } from "../audio/sectionAudio";
+import { useContentPacks } from "../context/ContentPackContext";
+import type { AudioUriSource } from "../contentPacks/types";
 import { useApp } from "../context/AppContext";
 import type { FontSize } from "../storage/keys";
 import ReaderOnboarding, {
   SANDHYA_ONBOARDING_STEPS,
 } from "../components/ReaderOnboarding";
+import ReaderAudioControl from "../components/ReaderAudioControl";
+import DeityIconBox from "../components/DeityIconBox";
 import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
 import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
 
-const gayatriMataImage = require("../../assets/gayatri-mata.jpg");
+import { DEITY_ICONS } from "../content/deityIcons";
+
+const gayatriMataImage = DEITY_ICONS.gayatri;
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -95,8 +102,8 @@ function renderTextWithBold(
 
 type InlineAudioConfig = {
   lineContains: string;
-  asset: number;
-  onPlay: (asset: number) => void;
+  repoPath: string;
+  onPlay: (repoPath: string) => void;
 };
 
 /** Renders mantra string with heading lines (lines ending with ":") highlighted. */
@@ -144,7 +151,7 @@ function renderMantraWithHeadings(
         <View key={i} style={styles.inlineAudioRow}>
           <View style={styles.inlineAudioTextWrap}>{lineContent}</View>
           <Pressable
-            onPress={() => inlineAudio.onPlay(inlineAudio.asset)}
+            onPress={() => inlineAudio.onPlay(inlineAudio.repoPath)}
             style={styles.inlinePlayBtn}
             accessibilityLabel="Play audio"
           >
@@ -170,8 +177,8 @@ function BookPageContent({
   meaningExpanded: boolean;
   onToggleMeaning: () => void;
   fontScale?: number;
-  inlineAudioForLine?: { lineContains: string; asset: number };
-  onPlayInlineAudio?: (asset: number) => void;
+  inlineAudioForLine?: { lineContains: string; repoPath: string };
+  onPlayInlineAudio?: (repoPath: string) => void;
 }) {
   const scaled = useMemo(
     () => ({
@@ -187,10 +194,11 @@ function BookPageContent({
   if (pageIndex === 0) {
     return (
       <View style={[styles.pageContent, styles.firstPageContent]}>
-        <Image
+        <DeityIconBox
           source={gayatriMataImage}
+          width={120}
+          aspectRatio={1.33}
           style={styles.gayatriImage}
-          resizeMode="contain"
           accessibilityLabel="Gayatri Mata"
         />
         <Text style={styles.opening}>{opening}</Text>
@@ -248,7 +256,7 @@ function BookPageContent({
             inlineAudioForLine && onPlayInlineAudio
               ? {
                   lineContains: inlineAudioForLine.lineContains,
-                  asset: inlineAudioForLine.asset,
+                  repoPath: inlineAudioForLine.repoPath,
                   onPlay: onPlayInlineAudio,
                 }
               : undefined
@@ -307,6 +315,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
     markHintsSeen,
     autoSlideEnabled,
   } = useApp();
+  const { resolveAudioTracks, resolveAudioSource } = useContentPacks();
   const fontScale = FONT_SCALE[fontSize];
 
   useEffect(() => {
@@ -356,18 +365,20 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
   }, [stopAndUnload]);
 
   const sectionIndex = currentPage > 0 ? currentPage - 1 : -1;
-  const audioTracks = getSectionAudioTracks(sectionIndex);
-  const hasAudio = audioTracks.length > 0;
+  const audioTrackPaths = getSectionAudioTrackPaths(sectionIndex);
+  const hasAudio = audioTrackPaths.length > 0;
+  const resolvedTracksRef = useRef<AudioUriSource[]>([]);
 
   const playNextTrackRef = useRef<((trackIndex: number) => Promise<void>) | null>(null);
 
   const playTrack = useCallback(
     async (trackIndex: number) => {
-      if (trackIndex >= audioTracks.length) {
+      const tracks = resolvedTracksRef.current;
+      if (trackIndex >= tracks.length) {
         await stopAndUnload();
         return;
       }
-      const source = audioTracks[trackIndex];
+      const source = tracks[trackIndex];
       try {
         const { sound } = await Audio.Sound.createAsync(source, {
           shouldPlay: true,
@@ -382,7 +393,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
             !status.isPlaying
           ) {
             const nextIndex = trackIndex + 1;
-            if (nextIndex < audioTracks.length) {
+            if (nextIndex < tracks.length) {
               sound.unloadAsync().catch(() => {});
               soundRef.current = null;
               playNextTrackRef.current?.(nextIndex);
@@ -397,7 +408,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
         setAudioLoading(false);
       }
     },
-    [audioTracks, stopAndUnload]
+    [stopAndUnload]
   );
 
   playNextTrackRef.current = playTrack;
@@ -410,14 +421,35 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
     }
     setAudioLoading(true);
     await stopAndUnload();
-    await playTrack(0);
-  }, [hasAudio, isPlaying, audioLoading, playTrack, stopAndUnload]);
+    try {
+      resolvedTracksRef.current = await resolveAudioTracks(
+        SANDHYAVANDANAM_AUDIO_PACK,
+        audioTrackPaths
+      );
+      await playTrack(0);
+    } catch (_) {
+      setIsPlaying(false);
+      setAudioLoading(false);
+    }
+  }, [
+    hasAudio,
+    isPlaying,
+    audioLoading,
+    playTrack,
+    stopAndUnload,
+    resolveAudioTracks,
+    audioTrackPaths,
+  ]);
 
   const handlePlayInlineAudio = useCallback(
-    async (asset: number) => {
+    async (repoPath: string) => {
       await stopAndUnload();
       try {
-        const { sound } = await Audio.Sound.createAsync(asset, {
+        const source = await resolveAudioSource(
+          SANDHYAVANDANAM_AUDIO_PACK,
+          repoPath
+        );
+        const { sound } = await Audio.Sound.createAsync(source, {
           shouldPlay: true,
         });
         soundRef.current = sound;
@@ -434,7 +466,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
         });
       } catch (_) {}
     },
-    [stopAndUnload]
+    [stopAndUnload, resolveAudioSource]
   );
 
   useEffect(() => {
@@ -523,25 +555,14 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
         >
           <Text style={[styles.backBtnText, isLandscape && styles.backBtnTextLandscape]}>← Contents</Text>
         </Pressable>
-        <Pressable
-          onPress={handlePlayPause}
-          disabled={!hasAudio}
-          style={({ pressed }) => [
-            styles.speakerBtn,
-            isLandscape && styles.speakerBtnLandscape,
-            !hasAudio && styles.speakerBtnDisabled,
-            pressed && hasAudio && styles.pressed,
-          ]}
-          accessibilityLabel={hasAudio ? "Play section audio" : "No audio for this section"}
-        >
-          {audioLoading ? (
-            <ActivityIndicator size="small" color={colors.goldLight} />
-          ) : (
-            <Text style={[styles.speakerIcon, isLandscape && styles.speakerIconLandscape, !hasAudio && styles.speakerIconDisabled]}>
-              {isPlaying ? "⏹" : "🔊"}
-            </Text>
-          )}
-        </Pressable>
+        <ReaderAudioControl
+          packId={SANDHYAVANDANAM_AUDIO_PACK}
+          hasAudio={hasAudio}
+          isPlaying={isPlaying}
+          audioLoading={audioLoading}
+          onPlayPause={handlePlayPause}
+          compact={isLandscape}
+        />
       </View>
 
       <View style={[styles.mainContentWrapper, isLandscape && styles.mainContentWrapperLandscape]}>
@@ -574,13 +595,13 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
                           return {
                             lineContains:
                               "పశ్చాత్ హస్తే జలమాదాయ ఉత్థాయ",
-                            asset: INLINE_AUDIO_SUB1,
+                            repoPath: INLINE_AUDIO_SUB1_PATH,
                           };
                         }
                         if (titleTe.includes("సూర్యోపస్థానమ్")) {
                           return {
                             lineContains: "మధ్యాహ్నే",
-                            asset: INLINE_AUDIO_SURYOPASTHANAM_MADHYAHNA,
+                            repoPath: INLINE_AUDIO_SURYOPASTHANAM_MADHYAHNA_PATH,
                           };
                         }
                         return undefined;
@@ -779,8 +800,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   gayatriImage: {
-    width: 120,
-    height: 160,
     marginBottom: 20,
   },
   opening: {
