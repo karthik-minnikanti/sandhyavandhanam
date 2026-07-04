@@ -2,6 +2,7 @@ import React from "react";
 import { StatusBar } from "expo-status-bar";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Linking from "expo-linking";
 import { AppProvider } from "./src/context/AppContext";
 import BookCover from "./src/screens/BookCover";
@@ -44,8 +45,9 @@ const linking = {
 
 export default function App() {
   return (
-    <AppProvider>
-      <NavigationContainer linking={linking}>
+    <SafeAreaProvider>
+      <AppProvider>
+        <NavigationContainer linking={linking}>
         <StatusBar style="light" />
         <Stack.Navigator
           screenOptions={{
@@ -61,7 +63,8 @@ export default function App() {
           <Stack.Screen name="YagnopaveetamVidhi" component={YagnopaveetamVidhi} />
           <Stack.Screen name="LalithaSahasranamam" component={LalithaSahasranamam} />
         </Stack.Navigator>
-      </NavigationContainer>
-    </AppProvider>
+        </NavigationContainer>
+      </AppProvider>
+    </SafeAreaProvider>
   );
 }

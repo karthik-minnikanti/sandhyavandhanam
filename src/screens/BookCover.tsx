@@ -61,10 +61,10 @@ export default function BookCover({ navigation }: Props) {
             accessibilityLabel="Gayatri Mata"
           />
           <View style={styles.divider} />
-          <Text style={styles.title}>సంధ్యావందనం</Text>
-          <Text style={styles.titleEn}>Sandhyavandanam</Text>
+          <Text style={styles.title}>వేదగాయత్రి</Text>
+          <Text style={styles.titleEn}>VedGayatri</Text>
           <View style={styles.subtitleBlock}>
-            <Text style={styles.subtitle}>సంధ్యావందన విధానం</Text>
+            <Text style={styles.subtitle}>కృష్ణ యజుర్వేద సంధ్యావందనం</Text>
             <Text style={styles.subtitle}>యజ్ఞోపవీత ధారణ విధిః</Text>
             <Text style={styles.subtitle}>శ్రీ లలితా సహస్ర నామ స్తోత్రం</Text>
           </View>
@@ -115,8 +115,8 @@ const styles = StyleSheet.create({
   },
   frame: {
     alignItems: "center",
-    paddingVertical: 32,
-    paddingHorizontal: 28,
+    paddingVertical: 24,
+    paddingHorizontal: 22,
     borderWidth: 2,
     borderColor: colors.gold,
     borderRadius: 16,
@@ -130,15 +130,15 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   om: {
-    fontSize: 28,
+    fontSize: 26,
     color: colors.goldLight,
-    marginBottom: 12,
+    marginBottom: 8,
     fontWeight: "300",
   },
   gayatriImage: {
-    width: 160,
-    height: 200,
-    marginBottom: 20,
+    width: 140,
+    height: 175,
+    marginBottom: 14,
     borderRadius: 8,
     overflow: "hidden",
   },
@@ -146,33 +146,34 @@ const styles = StyleSheet.create({
     width: 48,
     height: 2,
     backgroundColor: colors.gold,
-    marginBottom: 20,
+    marginBottom: 14,
     borderRadius: 1,
   },
   title: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: "700",
     color: colors.goldLight,
-    marginBottom: 8,
+    marginBottom: 4,
     textAlign: "center",
     letterSpacing: 1,
   },
   titleEn: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "600",
     color: colors.textOnDarkMuted,
-    marginBottom: 16,
-    letterSpacing: 3,
+    marginBottom: 12,
+    letterSpacing: 2,
   },
   subtitleBlock: {
     alignItems: "center",
-    marginBottom: 28,
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textOnDarkMuted,
-    lineHeight: 22,
+    lineHeight: 20,
     opacity: 0.95,
+    textAlign: "center",
   },
   streakText: {
     fontSize: 13,

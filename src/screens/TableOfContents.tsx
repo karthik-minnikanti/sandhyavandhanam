@@ -32,7 +32,7 @@ const chapters = [
     key: "LalithaSahasranamam" as const,
     titleTe: "శ్రీ లలితా సహస్ర నామ స్తోత్రం",
     titleEn: "Lalitha Sahasranamam",
-    description: "1000 names — Telugu text & full stotram audio (MS Subbulakshmi Jr)",
+    description: "1000 names — Telugu text & section audio (Samavedam Shanmukha Sarma)",
   },
 ];
 

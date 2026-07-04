@@ -8,9 +8,9 @@ import {
   LayoutAnimation,
   UIManager,
   Platform,
-  PanResponder,
   Image,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../types/navigation";
 import { colors } from "../theme/colors";
@@ -18,9 +18,14 @@ import {
   yagnopaveethaOpening,
   yagnopaveethaDharanaSections,
 } from "../content/yagnopaveethaDharanaVidhi";
+import { useApp } from "../context/AppContext";
+import ReaderOnboarding, {
+  SWIPE_NAV_ONBOARDING_STEPS,
+} from "../components/ReaderOnboarding";
+import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
+import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
 
 const dharanaImage = require("../../assets/dharana.jpg");
-const SWIPE_THRESHOLD = 50;
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -61,6 +66,13 @@ function PageContent({ pageIndex }: { pageIndex: number }) {
 
 export default function YagnopaveetamVidhi({ navigation }: Props) {
   const [currentPage, setCurrentPage] = useState(0);
+  const [hintIndex, setHintIndex] = useState(0);
+  const { preferencesLoaded, hintsSeen, markHintsSeen } = useApp();
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    if (!hintsSeen) setHintIndex(0);
+  }, [hintsSeen]);
 
   const goNext = useCallback(() => {
     setCurrentPage((p) => {
@@ -78,25 +90,7 @@ export default function YagnopaveetamVidhi({ navigation }: Props) {
     });
   }, []);
 
-  const goNextRef = useRef(goNext);
-  const goPrevRef = useRef(goPrev);
-  goNextRef.current = goNext;
-  goPrevRef.current = goPrev;
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        const { dx, dy } = gestureState;
-        return Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 15;
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const { dx } = gestureState;
-        if (dx > SWIPE_THRESHOLD) goPrevRef.current();
-        else if (dx < -SWIPE_THRESHOLD) goNextRef.current();
-      },
-    })
-  ).current;
+  const pageSwipe = useReaderPageSwipe(goPrev, goNext);
 
   const canGoPrev = currentPage > 0;
   const canGoNext = currentPage < TOTAL_PAGES - 1;
@@ -104,7 +98,7 @@ export default function YagnopaveetamVidhi({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, readerTopBarStyle(insets)]}>
         <Pressable
           onPress={() => navigation.goBack()}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
@@ -115,7 +109,7 @@ export default function YagnopaveetamVidhi({ navigation }: Props) {
 
       <View
         style={[styles.contentHalf, !kriyaAvailable && styles.contentHalfFull]}
-        {...panResponder.panHandlers}
+        {...pageSwipe.panHandlers}
       >
         <View style={styles.bookPage}>
           <ScrollView
@@ -137,7 +131,7 @@ export default function YagnopaveetamVidhi({ navigation }: Props) {
         </View>
       ) : null}
 
-      <View style={styles.navBar}>
+      <View style={[styles.navBar, readerNavBarStyle(insets)]}>
         <Pressable
           onPress={goPrev}
           disabled={!canGoPrev}
@@ -164,6 +158,14 @@ export default function YagnopaveetamVidhi({ navigation }: Props) {
           </Text>
         </Pressable>
       </View>
+
+      <ReaderOnboarding
+        visible={preferencesLoaded && !hintsSeen}
+        steps={SWIPE_NAV_ONBOARDING_STEPS}
+        stepIndex={hintIndex}
+        onNext={() => setHintIndex((i) => i + 1)}
+        onDone={markHintsSeen}
+      />
     </View>
   );
 }
@@ -174,7 +176,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   topBar: {
-    paddingTop: Platform.OS === "ios" ? 52 : 44,
     paddingBottom: 10,
     paddingHorizontal: 16,
     backgroundColor: colors.background,
@@ -288,7 +289,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    paddingBottom: Platform.OS === "ios" ? 28 : 12,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.gold,

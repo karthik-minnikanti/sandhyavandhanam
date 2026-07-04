@@ -104,7 +104,7 @@ export default function Preferences({ navigation }: Props) {
           onPress={() => showHintsAgain()}
         >
           <Text style={styles.showHintsAgainText}>
-            Show tips again
+            Show how-to guide again
           </Text>
         </Pressable>
       </ScrollView>

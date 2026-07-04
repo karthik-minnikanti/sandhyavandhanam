@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Split Samavedam Guru Garu Lalitha Sahasranamam into 23 section MP3s.
+"""Split Samavedam Guru Garu Lalitha Sahasranamam into 22 section MP3s.
 
 Uses silence detection for the preamble and early name-slokas. Each sloka is
 two lines; pauses fall between lines. Page boundaries (every 10 slokas) end at
@@ -29,7 +29,48 @@ LONG_LINE_GAP_SEC = 12.0  # coarse gap holding multiple lines → split inside i
 NEXT_LINE_TAIL_MIN = 6.0   # min speech after inner split before next coarse pause
 NEXT_LINE_TAIL_MAX = 15.0
 NUM_NAME_SECTIONS = 19
-TOTAL_SECTIONS = 23
+TOTAL_SECTIONS = 22
+
+# Manual page start times (page 2 = 02.mp3; viniyoga & panchapuja pages removed).
+MANUAL_PAGE_STARTS: dict[int, float] = {
+    5: 4 * 60 + 12,        # 4:12    — నామాలు ॥ 21–30 ॥
+    6: 6 * 60 + 7,         # 6:07    — నామాలు ॥ 31–40 ॥
+    7: 7 * 60 + 50,        # 7:50    — నామాలు ॥ 41–50 ॥
+    8: 9 * 60 + 21,        # 9:21    — నామాలు ॥ 51–60 ॥
+    9: 10 * 60 + 48,       # 10:48   — నామాలు ॥ 61–70 ॥
+    10: 12 * 60 + 14.5,    # 12:14.5 — నామాలు ॥ 71–80 ॥
+    11: 13 * 60 + 38,      # 13:38   — నామాలు ॥ 81–90 ॥
+    12: 15 * 60 + 4.2,     # 15:04.2 — నామాలు ॥ 91–100 ॥
+    13: 16 * 60 + 33.3,    # 16:33.3 — నామాలు ॥ 101–110 ॥
+    14: 18 * 60 + 3.3,     # 18:03.3 — నామాలు ॥ 111–120 ॥
+    15: 19 * 60 + 31.2,    # 19:31.2 — నామాలు ॥ 121–130 ॥
+    16: 21 * 60 + 0,       # 21:00   — నామాలు ॥ 131–140 ॥
+    17: 22 * 60 + 32.7,    # 22:32.7 — నామాలు ॥ 141–150 ॥
+    18: 24 * 60 + 0,       # 24:00   — నామాలు ॥ 151–160 ॥
+    19: 25 * 60 + 29,      # 25:29   — నామాలు ॥ 161–170 ॥
+    20: 26 * 60 + 57,      # 26:57   — నామాలు ॥ 171–180 ॥
+    21: 28 * 60 + 29,      # 28:29   — నామాలు ॥ 181–183 ॥
+}
+
+
+def page_to_cut_index(page: int) -> int:
+    """Map reader page to split cut index (01.mp3 & 03.mp3 unused in app)."""
+    if page == 2:
+        return 1
+    return page
+
+
+def apply_manual_overrides(cuts: list[float]) -> list[float]:
+    """Apply hand-tuned page starts."""
+    out = list(cuts)
+    for page, start in sorted(MANUAL_PAGE_STARTS.items()):
+        idx = page_to_cut_index(page)
+        if 0 <= idx < len(out):
+            out[idx] = start
+    for i in range(1, len(out)):
+        if out[i] <= out[i - 1]:
+            out[i] = out[i - 1] + 0.05
+    return out
 
 
 def probe_duration(path: Path) -> float:
@@ -156,7 +197,6 @@ def section_cuts(sloka_ends: list[float], bounds: list[float], src: Path, total:
             cuts.append(page_boundary_time(sloka_num, bounds, src))
         else:
             cuts.append(sloka_ends[sloka_num - 1])
-    cuts.append(NAMES_END)
     cuts.append(total)
     return cuts
 
@@ -195,7 +235,7 @@ def main() -> None:
         )
 
     sloka_ends = sloka_end_times(bounds, SRC)
-    cuts = section_cuts(sloka_ends, bounds, SRC, total)
+    cuts = apply_manual_overrides(section_cuts(sloka_ends, bounds, SRC, total))
     if len(cuts) - 1 != TOTAL_SECTIONS:
         raise SystemExit(f"Expected {TOTAL_SECTIONS} sections, got {len(cuts) - 1}")
 

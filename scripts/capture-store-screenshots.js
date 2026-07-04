@@ -52,7 +52,7 @@ const FORM_FACTORS = [
 ];
 
 const SCREENS = [
-  { file: "01-book-cover", path: "/", waitFor: "సంధ్యావందనం" },
+  { file: "01-book-cover", path: "/", waitFor: "VedGayatri" },
   { file: "02-contents", path: "/toc", waitFor: "Contents" },
   { file: "03-sandhyavandanam", path: "/sandhyavandanam/4", waitFor: "Contents" },
   { file: "04-lalitha-sahasranamam", path: "/lalitha/4", waitFor: "Contents" },

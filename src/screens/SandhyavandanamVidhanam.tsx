@@ -9,11 +9,10 @@ import {
   UIManager,
   Platform,
   Image,
-  PanResponder,
   ActivityIndicator,
-  Modal,
   useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Audio } from "expo-av";
 import { useKeepAwake } from "expo-keep-awake";
 import { useRoute, RouteProp } from "@react-navigation/native";
@@ -34,17 +33,19 @@ import {
 } from "../audio/sectionAudio";
 import { useApp } from "../context/AppContext";
 import type { FontSize } from "../storage/keys";
+import ReaderOnboarding, {
+  SANDHYA_ONBOARDING_STEPS,
+} from "../components/ReaderOnboarding";
+import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
+import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
 
 const gayatriMataImage = require("../../assets/gayatri-mata.jpg");
-
-const SWIPE_THRESHOLD = 50;
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 const FONT_SCALE: Record<FontSize, number> = { small: 0.9, medium: 1, large: 1.15 };
-const HINTS_LENGTH = 4;
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, "SandhyavandanamVidhanam">;
@@ -309,6 +310,10 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
   const fontScale = FONT_SCALE[fontSize];
 
   useEffect(() => {
+    if (!hintsSeen) setHintIndex(0);
+  }, [hintsSeen]);
+
+  useEffect(() => {
     if (currentPage > 0) {
       const sec = sandhyavandanamSections[currentPage - 1];
       if (sec) {
@@ -454,10 +459,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
     });
   }, []);
 
-  const goNextRef = useRef(goNext);
-  const goPrevRef = useRef(goPrev);
-  goNextRef.current = goNext;
-  goPrevRef.current = goPrev;
+  const pageSwipe = useReaderPageSwipe(goPrev, goNext);
 
   // Auto-slide: advance page after duration based on content length
   useEffect(() => {
@@ -486,22 +488,8 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
     };
   }, [currentPage, autoSlideEnabled]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        const { dx, dy } = gestureState;
-        return Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 15;
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const { dx } = gestureState;
-        if (dx > SWIPE_THRESHOLD) goPrevRef.current();
-        else if (dx < -SWIPE_THRESHOLD) goNextRef.current();
-      },
-    })
-  ).current;
-
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isLandscape = windowWidth > windowHeight;
   const canGoPrev = currentPage > 0;
   const canGoNext = currentPage < TOTAL_PAGES - 1;
@@ -528,7 +516,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
           ]}
         />
       </View>
-      <View style={[styles.topBar, isLandscape && styles.topBarLandscape]}>
+      <View style={[styles.topBar, readerTopBarStyle(insets), isLandscape && styles.topBarLandscape]}>
         <Pressable
           onPress={() => navigation.goBack()}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
@@ -563,7 +551,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
             !kriyaAvailable && styles.contentHalfFull,
             isLandscape && styles.contentHalfLandscape,
           ]}
-          {...panResponder.panHandlers}
+          {...pageSwipe.panHandlers}
         >
           <View style={styles.bookPage}>
             <ScrollView
@@ -602,7 +590,6 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
                 onPlayInlineAudio={handlePlayInlineAudio}
               />
             </ScrollView>
-            <Text style={styles.swipeCue}>← Swipe to turn page</Text>
           </View>
         </View>
 
@@ -624,7 +611,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
       </View>
 
       {/* Bottom nav bar */}
-      <View style={styles.navBar}>
+      <View style={[styles.navBar, readerNavBarStyle(insets)]}>
         <Pressable
           onPress={goPrev}
           disabled={!canGoPrev}
@@ -666,46 +653,13 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
         </Pressable>
       </View>
 
-      {preferencesLoaded && !hintsSeen && (
-        <Modal visible={hintIndex < HINTS_LENGTH} transparent animationType="fade">
-          <View style={styles.hintOverlay}>
-            <View style={styles.hintCard}>
-              <Text style={styles.hintTitle}>How to use</Text>
-              <View style={styles.hintStepIndicator}>
-                {[0, 1, 2, 3].map((i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.hintStepDot,
-                      i === hintIndex && styles.hintStepDotActive,
-                      i < hintIndex && styles.hintStepDotDone,
-                    ]}
-                  />
-                ))}
-              </View>
-              <Text style={styles.hintText}>
-                {[
-                  "Swipe left or right to turn pages",
-                  "Tap 'అర్థం' to expand meaning",
-                  "Tap speaker icon to play section audio",
-                  "Turn on 'Auto slide' in Preferences (from Contents) to advance pages automatically by content length",
-                ][hintIndex]}
-              </Text>
-              <Pressable
-                style={({ pressed }) => [styles.hintBtn, pressed && styles.pressed]}
-                onPress={() => {
-                  if (hintIndex < 3) setHintIndex((i) => i + 1);
-                  else markHintsSeen();
-                }}
-              >
-                <Text style={styles.hintBtnText}>
-                  {hintIndex < 3 ? "Next" : "Done"}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
-      )}
+      <ReaderOnboarding
+        visible={preferencesLoaded && !hintsSeen}
+        steps={SANDHYA_ONBOARDING_STEPS}
+        stepIndex={hintIndex}
+        onNext={() => setHintIndex((i) => i + 1)}
+        onDone={markHintsSeen}
+      />
     </View>
   );
 }
@@ -728,7 +682,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: Platform.OS === "ios" ? 52 : 44,
     paddingBottom: 10,
     paddingHorizontal: 16,
     backgroundColor: colors.background,
@@ -776,13 +729,6 @@ const styles = StyleSheet.create({
   },
   speakerIconDisabled: {
     opacity: 0.6,
-  },
-  swipeCue: {
-    fontSize: 12,
-    color: colors.textMuted,
-    textAlign: "center",
-    marginTop: 8,
-    marginBottom: 8,
   },
   mainContentWrapper: {
     flex: 1,
@@ -936,7 +882,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    paddingBottom: Platform.OS === "ios" ? 28 : 12,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.gold,
@@ -967,86 +912,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textOnDarkMuted,
     fontWeight: "600",
-  },
-  hintOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    padding: 28,
-  },
-  hintCard: {
-    backgroundColor: colors.paper,
-    borderRadius: 16,
-    padding: 28,
-    borderWidth: 2,
-    borderColor: colors.gold,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  hintTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: colors.accent,
-    textAlign: "center",
-    marginBottom: 4,
-  },
-  hintSubtitle: {
-    fontSize: 14,
-    color: colors.textMuted,
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  hintStepIndicator: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 10,
-    marginBottom: 24,
-  },
-  hintStepDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.paperDark,
-  },
-  hintStepDotActive: {
-    width: 28,
-    backgroundColor: colors.gold,
-  },
-  hintStepDotDone: {
-    backgroundColor: colors.accent,
-  },
-  hintText: {
-    fontSize: 18,
-    color: colors.text,
-    lineHeight: 28,
-    textAlign: "center",
-    marginBottom: 10,
-  },
-  hintTextEn: {
-    fontSize: 14,
-    color: colors.textMuted,
-    lineHeight: 20,
-    textAlign: "center",
-    marginBottom: 24,
-  },
-  hintBtn: {
-    backgroundColor: colors.gold,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  hintBtnText: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: colors.text,
-  },
-  hintBtnEn: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginTop: 4,
   },
   kriyaHalf: {
     flex: 35,

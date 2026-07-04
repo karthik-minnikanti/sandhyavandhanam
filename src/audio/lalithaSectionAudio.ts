@@ -1,15 +1,12 @@
 /**
- * Per-section Lalitha Sahasranamam audio — Samavedam Guru Garu (gurujnanam.org).
+ * Per-section Lalitha Sahasranamam audio (gurujnanam.org).
  * Section MP3s split from the full stotram recording to match each reader page.
  */
-export const LALITHA_AUDIO_CREDIT =
-  "సమవేదం గురు గారు · gurujnanam.org";
+export const LALITHA_AUDIO_CREDIT = "gurujnanam.org";
 
 const sectionAudioAssets: number[] = [
-  require("./lalitha/01.mp3"),
-  require("./lalitha/02.mp3"),
-  require("./lalitha/03.mp3"),
-  require("./lalitha/04.mp3"),
+  require("./lalitha/02.mp3"), // ధ్యానం
+  require("./lalitha/04.mp3"), // నామాలు ॥ 1–10 ॥
   require("./lalitha/05.mp3"),
   require("./lalitha/06.mp3"),
   require("./lalitha/07.mp3"),
@@ -28,7 +25,6 @@ const sectionAudioAssets: number[] = [
   require("./lalitha/20.mp3"),
   require("./lalitha/21.mp3"),
   require("./lalitha/22.mp3"),
-  require("./lalitha/23.mp3"),
 ];
 
 export function hasLalithaAudio(): boolean {

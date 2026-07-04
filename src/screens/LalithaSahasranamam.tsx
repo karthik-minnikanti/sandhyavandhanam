@@ -9,7 +9,6 @@ import {
   UIManager,
   Platform,
   Image,
-  PanResponder,
   ActivityIndicator,
 } from "react-native";
 import { Audio } from "expo-av";
@@ -27,11 +26,16 @@ import {
   hasLalithaSectionAudio,
   LALITHA_AUDIO_CREDIT,
 } from "../audio/lalithaSectionAudio";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "../context/AppContext";
 import type { FontSize } from "../storage/keys";
+import ReaderOnboarding, {
+  BASIC_READER_ONBOARDING_STEPS,
+} from "../components/ReaderOnboarding";
+import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
+import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
 
 const deviImage = require("../../assets/gayatri-mata.jpg");
-const SWIPE_THRESHOLD = 50;
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -96,13 +100,26 @@ export default function LalithaSahasranamam({ navigation }: Props) {
   );
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
+  const [hintIndex, setHintIndex] = useState(0);
   const soundRef = useRef<Audio.Sound | null>(null);
   const pageScrollRef = useRef<ScrollView>(null);
-  const { fontSize, setLastSection, refreshStreak } = useApp();
+  const {
+    fontSize,
+    setLastSection,
+    refreshStreak,
+    preferencesLoaded,
+    hintsSeen,
+    markHintsSeen,
+  } = useApp();
+  const insets = useSafeAreaInsets();
   const fontScale = FONT_SCALE[fontSize];
   const sectionIndex = currentPage > 0 ? currentPage - 1 : -1;
   const audioTracks = getLalithaSectionAudioTracks(sectionIndex);
   const hasAudio = hasLalithaSectionAudio(sectionIndex);
+
+  useEffect(() => {
+    if (!hintsSeen) setHintIndex(0);
+  }, [hintsSeen]);
 
   useEffect(() => {
     if (currentPage > 0) {
@@ -206,25 +223,7 @@ export default function LalithaSahasranamam({ navigation }: Props) {
     });
   }, []);
 
-  const goNextRef = useRef(goNext);
-  const goPrevRef = useRef(goPrev);
-  goNextRef.current = goNext;
-  goPrevRef.current = goPrev;
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        const { dx, dy } = gestureState;
-        return Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 15;
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        const { dx } = gestureState;
-        if (dx > SWIPE_THRESHOLD) goPrevRef.current();
-        else if (dx < -SWIPE_THRESHOLD) goNextRef.current();
-      },
-    })
-  ).current;
+  const pageSwipe = useReaderPageSwipe(goPrev, goNext);
 
   const canGoPrev = currentPage > 0;
   const canGoNext = currentPage < TOTAL_PAGES - 1;
@@ -239,7 +238,7 @@ export default function LalithaSahasranamam({ navigation }: Props) {
           ]}
         />
       </View>
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, readerTopBarStyle(insets)]}>
         <Pressable
           onPress={() => navigation.goBack()}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
@@ -266,7 +265,7 @@ export default function LalithaSahasranamam({ navigation }: Props) {
         </Pressable>
       </View>
 
-      <View style={styles.contentHalf} {...panResponder.panHandlers}>
+      <View style={styles.contentHalf} {...pageSwipe.panHandlers}>
         <View style={styles.bookPage}>
           <ScrollView
             ref={pageScrollRef}
@@ -279,7 +278,7 @@ export default function LalithaSahasranamam({ navigation }: Props) {
         </View>
       </View>
 
-      <View style={styles.navBar}>
+      <View style={[styles.navBar, readerNavBarStyle(insets)]}>
         <Pressable
           onPress={goPrev}
           disabled={!canGoPrev}
@@ -302,6 +301,14 @@ export default function LalithaSahasranamam({ navigation }: Props) {
           </Text>
         </Pressable>
       </View>
+
+      <ReaderOnboarding
+        visible={preferencesLoaded && !hintsSeen}
+        steps={BASIC_READER_ONBOARDING_STEPS}
+        stepIndex={hintIndex}
+        onNext={() => setHintIndex((i) => i + 1)}
+        onDone={markHintsSeen}
+      />
     </View>
   );
 }
@@ -324,7 +331,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: Platform.OS === "ios" ? 52 : 44,
     paddingBottom: 10,
     paddingHorizontal: 16,
     backgroundColor: colors.background,
@@ -437,7 +443,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    paddingBottom: Platform.OS === "ios" ? 28 : 12,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.gold,
