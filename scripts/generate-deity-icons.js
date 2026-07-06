@@ -1,7 +1,5 @@
 /**
- * Generates circular deity grid icons for Lalitha and Vidhi.
- * Gayatri uses the photo at assets/deities/gayatri.jpg (copy from gayatri-mata.jpg).
- *
+ * Generates placeholder deity icons. Gayatri and Lalitha use photos in assets/deities/.
  * Usage: node scripts/generate-deity-icons.js
  */
 const path = require("path");
@@ -34,11 +32,11 @@ async function main() {
 
   const icons = [
     {
-      file: "lalitha.jpg",
+      file: "shiva.jpg",
       svg: circleIcon({
-        bg: "#5c1a3d",
+        bg: "#2a3a4a",
         border: "#c9a227",
-        label: "ల",
+        label: "శ",
         fontSize: 220,
       }),
     },

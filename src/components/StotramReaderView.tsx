@@ -1,0 +1,522 @@
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Pressable,
+  LayoutAnimation,
+  UIManager,
+  Platform,
+  type ImageSourcePropType,
+} from "react-native";
+import { Audio } from "expo-av";
+import { useKeepAwake } from "expo-keep-awake";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../types/navigation";
+import { colors } from "../theme/colors";
+import type { StotramReaderPage, StotramSection } from "../content/stotramTypes";
+import { useApp } from "../context/AppContext";
+import type { FontSize } from "../storage/keys";
+import DeityIconBox from "../components/DeityIconBox";
+import MantraText from "../components/MantraText";
+import ReaderAudioControl from "../components/ReaderAudioControl";
+import { useContentPacks } from "../context/ContentPackContext";
+import type { AudioUriSource, ContentPackId } from "../contentPacks/types";
+import ReaderOnboarding, {
+  SWIPE_NAV_ONBOARDING_STEPS,
+} from "../components/ReaderOnboarding";
+import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
+import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const FONT_SCALE: Record<FontSize, number> = { small: 0.9, medium: 1, large: 1.15 };
+
+export type StotramReaderConfig = {
+  opening: string;
+  coverHint: string;
+  deityImage: ImageSourcePropType;
+  deityLabel: string;
+  readerPages: StotramReaderPage[];
+  audioPackId: ContentPackId;
+  getPageAudioTrackPaths: (readerPageIndex: number) => readonly string[];
+  hasPageAudio: (readerPageIndex: number) => boolean;
+};
+
+type Props = {
+  navigation: NativeStackNavigationProp<RootStackParamList>;
+  initialPage?: number;
+  config: StotramReaderConfig;
+};
+
+function SlokaBlock({
+  section,
+  showLabel,
+  fontScale,
+}: {
+  section: StotramSection;
+  showLabel: boolean;
+  fontScale: number;
+}) {
+  const lineStyle = useMemo(
+    () => ({
+      fontSize: 15 * fontScale,
+      lineHeight: 28 * fontScale,
+    }),
+    [fontScale]
+  );
+
+  return (
+    <View style={styles.slokaBlock}>
+      {showLabel ? (
+        <Text style={[styles.slokaLabel, { fontSize: 14 * fontScale }]}>
+          {section.titleTe}
+        </Text>
+      ) : null}
+      <MantraText mantra={section.mantra} lineStyle={lineStyle} />
+    </View>
+  );
+}
+
+function PageContent({
+  pageIndex,
+  fontScale,
+  config,
+}: {
+  pageIndex: number;
+  fontScale: number;
+  config: StotramReaderConfig;
+}) {
+  const scaled = useMemo(
+    () => ({
+      pageTitle: { fontSize: 17 * fontScale },
+      pageTitleEn: { fontSize: 13 * fontScale },
+      opening: { fontSize: 18 * fontScale },
+      hint: { fontSize: 14 * fontScale },
+    }),
+    [fontScale]
+  );
+
+  if (pageIndex === 0) {
+    return (
+      <View style={[styles.pageContent, styles.firstPageContent]}>
+        <DeityIconBox
+          source={config.deityImage}
+          width={120}
+          aspectRatio={1.33}
+          style={styles.deityImage}
+          accessibilityLabel={config.deityLabel}
+        />
+        <Text style={[styles.opening, scaled.opening]}>{config.opening}</Text>
+        <Text style={[styles.bookPageHint, scaled.hint]}>{config.coverHint}</Text>
+      </View>
+    );
+  }
+
+  const page = config.readerPages[pageIndex - 1];
+  const showSlokaLabels = page.sections.length > 1;
+
+  return (
+    <View style={styles.pageContent}>
+      <Text style={[styles.sectionTitleTe, scaled.pageTitle]}>{page.titleTe}</Text>
+      {page.titleEn ? (
+        <Text style={[styles.sectionTitleEn, scaled.pageTitleEn]}>{page.titleEn}</Text>
+      ) : null}
+      {page.sections.map((section) => (
+        <SlokaBlock
+          key={section.titleTe}
+          section={section}
+          showLabel={showSlokaLabels}
+          fontScale={fontScale}
+        />
+      ))}
+    </View>
+  );
+}
+
+export default function StotramReaderView({
+  navigation,
+  initialPage = 0,
+  config,
+}: Props) {
+  useKeepAwake();
+  const totalPages = config.readerPages.length + 1;
+  const [currentPage, setCurrentPage] = useState(() =>
+    Math.min(Math.max(0, initialPage), totalPages - 1)
+  );
+  const [hintIndex, setHintIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const resolvedTracksRef = useRef<AudioUriSource[]>([]);
+  const playNextTrackRef = useRef<((trackIndex: number) => Promise<void>) | null>(null);
+  const {
+    preferencesLoaded,
+    hintsSeen,
+    markHintsSeen,
+    setLastSection,
+    refreshStreak,
+    fontSize,
+  } = useApp();
+  const { resolveAudioTracks } = useContentPacks();
+  const insets = useSafeAreaInsets();
+  const fontScale = FONT_SCALE[fontSize];
+  const pageScrollRef = useRef<ScrollView>(null);
+
+  const readerPageIndex = currentPage > 0 ? currentPage - 1 : -1;
+  const audioTrackPaths = config.getPageAudioTrackPaths(readerPageIndex);
+  const hasAudio = config.hasPageAudio(readerPageIndex);
+
+  useEffect(() => {
+    if (!hintsSeen) setHintIndex(0);
+  }, [hintsSeen]);
+
+  useEffect(() => {
+    if (currentPage > 0) {
+      const page = config.readerPages[currentPage - 1];
+      if (page) {
+        setLastSection(currentPage, page.titleTe);
+        refreshStreak();
+      }
+    }
+  }, [currentPage, config.readerPages, setLastSection, refreshStreak]);
+
+  useEffect(() => {
+    pageScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [currentPage]);
+
+  useEffect(() => {
+    Audio.setAudioModeAsync({
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+    }).catch(() => {});
+  }, []);
+
+  const stopAndUnload = useCallback(async () => {
+    const sound = soundRef.current;
+    if (sound) {
+      try {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+      } catch (_) {}
+      soundRef.current = null;
+      setIsPlaying(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopAndUnload();
+    };
+  }, [stopAndUnload]);
+
+  const playTrack = useCallback(
+    async (trackIndex: number) => {
+      const tracks = resolvedTracksRef.current;
+      if (trackIndex >= tracks.length) {
+        await stopAndUnload();
+        return;
+      }
+      const source = tracks[trackIndex];
+      try {
+        const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true });
+        soundRef.current = sound;
+        setIsPlaying(true);
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (
+            "isLoaded" in status &&
+            status.isLoaded &&
+            status.didJustFinish &&
+            !status.isPlaying
+          ) {
+            const nextIndex = trackIndex + 1;
+            if (nextIndex < tracks.length) {
+              sound.unloadAsync().catch(() => {});
+              soundRef.current = null;
+              playNextTrackRef.current?.(nextIndex);
+            } else {
+              stopAndUnload();
+            }
+          }
+        });
+      } catch (_) {
+        setIsPlaying(false);
+      } finally {
+        setAudioLoading(false);
+      }
+    },
+    [stopAndUnload]
+  );
+
+  playNextTrackRef.current = playTrack;
+
+  const handlePlayPause = useCallback(async () => {
+    if (!hasAudio) return;
+    if (isPlaying || audioLoading) {
+      await stopAndUnload();
+      return;
+    }
+    setAudioLoading(true);
+    await stopAndUnload();
+    try {
+      resolvedTracksRef.current = await resolveAudioTracks(
+        config.audioPackId,
+        audioTrackPaths
+      );
+      await playTrack(0);
+    } catch (_) {
+      setIsPlaying(false);
+      setAudioLoading(false);
+    }
+  }, [
+    hasAudio,
+    isPlaying,
+    audioLoading,
+    playTrack,
+    stopAndUnload,
+    resolveAudioTracks,
+    config.audioPackId,
+    audioTrackPaths,
+  ]);
+
+  useEffect(() => {
+    stopAndUnload();
+  }, [currentPage, stopAndUnload]);
+
+  const goNext = useCallback(() => {
+    setCurrentPage((p) => {
+      if (p >= totalPages - 1) return p;
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      return p + 1;
+    });
+  }, [totalPages]);
+
+  const goPrev = useCallback(() => {
+    setCurrentPage((p) => {
+      if (p <= 0) return p;
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      return p - 1;
+    });
+  }, []);
+
+  const pageSwipe = useReaderPageSwipe(goPrev, goNext);
+  const canGoPrev = currentPage > 0;
+  const canGoNext = currentPage < totalPages - 1;
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.progressBarTrack}>
+        <View
+          style={[
+            styles.progressBarFill,
+            { width: `${(currentPage / (totalPages - 1)) * 100}%` },
+          ]}
+        />
+      </View>
+      <View style={[styles.topBar, readerTopBarStyle(insets)]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+        >
+          <Text style={styles.backBtnText}>← Contents</Text>
+        </Pressable>
+        <ReaderAudioControl
+          packId={config.audioPackId}
+          hasAudio={hasAudio}
+          isPlaying={isPlaying}
+          audioLoading={audioLoading}
+          onPlayPause={handlePlayPause}
+        />
+      </View>
+
+      <View style={styles.contentHalf} {...pageSwipe.panHandlers}>
+        <View style={styles.bookPage}>
+          <ScrollView
+            ref={pageScrollRef}
+            style={styles.pageScroll}
+            contentContainerStyle={styles.pageScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <PageContent pageIndex={currentPage} fontScale={fontScale} config={config} />
+          </ScrollView>
+        </View>
+      </View>
+
+      <View style={[styles.navBar, readerNavBarStyle(insets)]}>
+        <Pressable
+          onPress={goPrev}
+          disabled={!canGoPrev}
+          style={[styles.navBtn, !canGoPrev && styles.navBtnDisabled]}
+        >
+          <Text style={[styles.navBtnText, !canGoPrev && styles.navBtnTextDisabled]}>
+            ← Previous
+          </Text>
+        </Pressable>
+        <Text style={styles.pageIndicator}>
+          {currentPage + 1} / {totalPages}
+        </Text>
+        <Pressable
+          onPress={goNext}
+          disabled={!canGoNext}
+          style={[styles.navBtn, !canGoNext && styles.navBtnDisabled]}
+        >
+          <Text style={[styles.navBtnText, !canGoNext && styles.navBtnTextDisabled]}>
+            Next →
+          </Text>
+        </Pressable>
+      </View>
+
+      <ReaderOnboarding
+        visible={preferencesLoaded && !hintsSeen}
+        steps={SWIPE_NAV_ONBOARDING_STEPS}
+        stepIndex={hintIndex}
+        onNext={() => setHintIndex((i) => i + 1)}
+        onDone={markHintsSeen}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  progressBarTrack: {
+    height: 3,
+    backgroundColor: colors.surfaceLight,
+    width: "100%",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: colors.gold,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 10,
+    paddingHorizontal: 16,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceLight,
+  },
+  backBtn: {
+    alignSelf: "flex-start",
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  pressed: { opacity: 0.8 },
+  backBtnText: {
+    color: colors.goldLight,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  contentHalf: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  bookPage: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: colors.paper,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.paperDark,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  pageScroll: {
+    flex: 1,
+  },
+  pageScrollContent: {
+    padding: 24,
+    paddingBottom: 24,
+  },
+  pageContent: {
+    minHeight: 200,
+    width: "100%",
+  },
+  firstPageContent: {
+    alignItems: "center",
+  },
+  deityImage: {
+    marginBottom: 20,
+  },
+  opening: {
+    color: colors.accent,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 8,
+  },
+  bookPageHint: {
+    color: colors.textMuted,
+    textAlign: "center",
+    marginTop: 32,
+  },
+  sectionTitleTe: {
+    fontWeight: "700",
+    color: colors.accent,
+    marginBottom: 4,
+  },
+  sectionTitleEn: {
+    color: colors.textMuted,
+    marginBottom: 12,
+  },
+  slokaBlock: {
+    marginBottom: 20,
+    width: "100%",
+  },
+  slokaLabel: {
+    fontWeight: "600",
+    color: colors.accent,
+    marginBottom: 6,
+  },
+  navBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.gold,
+  },
+  navBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    minWidth: 88,
+    alignItems: "center",
+  },
+  navBtnDisabled: {
+    backgroundColor: colors.surfaceLight,
+    opacity: 0.6,
+  },
+  navBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.goldLight,
+  },
+  navBtnTextDisabled: {
+    color: colors.textOnDarkMuted,
+  },
+  pageIndicator: {
+    fontSize: 13,
+    color: colors.textOnDarkMuted,
+    fontWeight: "600",
+  },
+});

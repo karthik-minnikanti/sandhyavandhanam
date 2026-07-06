@@ -69,6 +69,7 @@ export default function BookCover({ navigation }: Props) {
             <Text style={styles.subtitle}>కృష్ణ యజుర్వేద సంధ్యావందనం</Text>
             <Text style={styles.subtitle}>యజ్ఞోపవీత ధారణ విధిః</Text>
             <Text style={styles.subtitle}>శ్రీ లలితా సహస్ర నామ స్తోత్రం</Text>
+            <Text style={styles.subtitle}>శ్రీ శివ స్తోత్రాలు</Text>
           </View>
           {streak > 0 ? (
             <Text style={styles.streakText}>ॐ {streak} day streak</Text>

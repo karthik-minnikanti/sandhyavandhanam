@@ -51,12 +51,22 @@ export function ContentPackProvider({ children }: { children: React.ReactNode })
   const [progress, setProgress] = useState<Record<ContentPackId, ContentPackProgress>>({
     "sandhyavandanam-audio": defaultProgress(),
     "lalitha-audio": defaultProgress(),
+    "dakshinamurthy-audio": defaultProgress(),
+    "lingashtakam-audio": defaultProgress(),
+    "arunachala-audio": defaultProgress(),
+    "chandrasekhara-audio": defaultProgress(),
+    "jyotirlinga-audio": defaultProgress(),
   });
 
   const refreshProgress = useCallback(async () => {
     const next: Record<ContentPackId, ContentPackProgress> = {
       "sandhyavandanam-audio": defaultProgress(),
       "lalitha-audio": defaultProgress(),
+      "dakshinamurthy-audio": defaultProgress(),
+      "lingashtakam-audio": defaultProgress(),
+      "arunachala-audio": defaultProgress(),
+      "chandrasekhara-audio": defaultProgress(),
+      "jyotirlinga-audio": defaultProgress(),
     };
 
     for (const pack of CONTENT_PACK_LIST) {

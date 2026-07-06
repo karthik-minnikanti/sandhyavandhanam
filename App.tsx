@@ -12,6 +12,11 @@ import Preferences from "./src/screens/Preferences";
 import SandhyavandanamVidhanam from "./src/screens/SandhyavandanamVidhanam";
 import YagnopaveetamVidhi from "./src/screens/YagnopaveetamVidhi";
 import LalithaSahasranamam from "./src/screens/LalithaSahasranamam";
+import DakshinamurthyStotram from "./src/screens/DakshinamurthyStotram";
+import Lingashtakam from "./src/screens/Lingashtakam";
+import ArunachalaAshtakam from "./src/screens/ArunachalaAshtakam";
+import ChandrasekharaAshtakam from "./src/screens/ChandrasekharaAshtakam";
+import DvadasaJyotirlingaStotram from "./src/screens/DvadasaJyotirlingaStotram";
 import type { RootStackParamList } from "./src/types/navigation";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -35,6 +40,41 @@ const linking = {
       YagnopaveetamVidhi: "yagnopaveetam",
       LalithaSahasranamam: {
         path: "lalitha/:initialPage?",
+        parse: {
+          initialPage: (value: string) =>
+            value != null && value !== "" ? Number(value) : undefined,
+        },
+      },
+      DakshinamurthyStotram: {
+        path: "dakshinamurthy/:initialPage?",
+        parse: {
+          initialPage: (value: string) =>
+            value != null && value !== "" ? Number(value) : undefined,
+        },
+      },
+      Lingashtakam: {
+        path: "lingashtakam/:initialPage?",
+        parse: {
+          initialPage: (value: string) =>
+            value != null && value !== "" ? Number(value) : undefined,
+        },
+      },
+      ArunachalaAshtakam: {
+        path: "arunachala/:initialPage?",
+        parse: {
+          initialPage: (value: string) =>
+            value != null && value !== "" ? Number(value) : undefined,
+        },
+      },
+      ChandrasekharaAshtakam: {
+        path: "chandrasekhara/:initialPage?",
+        parse: {
+          initialPage: (value: string) =>
+            value != null && value !== "" ? Number(value) : undefined,
+        },
+      },
+      DvadasaJyotirlingaStotram: {
+        path: "jyotirlinga/:initialPage?",
         parse: {
           initialPage: (value: string) =>
             value != null && value !== "" ? Number(value) : undefined,
@@ -64,6 +104,17 @@ export default function App() {
           <Stack.Screen name="SandhyavandanamVidhanam" component={SandhyavandanamVidhanam} />
           <Stack.Screen name="YagnopaveetamVidhi" component={YagnopaveetamVidhi} />
           <Stack.Screen name="LalithaSahasranamam" component={LalithaSahasranamam} />
+          <Stack.Screen name="DakshinamurthyStotram" component={DakshinamurthyStotram} />
+          <Stack.Screen name="Lingashtakam" component={Lingashtakam} />
+          <Stack.Screen name="ArunachalaAshtakam" component={ArunachalaAshtakam} />
+          <Stack.Screen
+            name="ChandrasekharaAshtakam"
+            component={ChandrasekharaAshtakam}
+          />
+          <Stack.Screen
+            name="DvadasaJyotirlingaStotram"
+            component={DvadasaJyotirlingaStotram}
+          />
         </Stack.Navigator>
         </NavigationContainer>
         </ContentPackProvider>

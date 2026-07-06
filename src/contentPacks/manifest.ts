@@ -1,4 +1,7 @@
 import type { ContentPack, ContentPackId } from "./types";
+import { ARUNACHALA_AUDIO_FILES } from "../audio/arunachalaSectionAudio";
+import { CHANDRASEKHARA_AUDIO_FILES } from "../audio/chandrasekharaSectionAudio";
+import { JYOTIRLINGA_AUDIO_FILES } from "../audio/jyotirlingaSectionAudio";
 
 const SANDHYAVANDANAM_AUDIO_FILES = [
   "src/audio/1.mp3",
@@ -46,6 +49,32 @@ const LALITHA_AUDIO_FILES = [
   "src/audio/lalitha/22.mp3",
 ] as const;
 
+const DAKSHINAMURTHY_AUDIO_FILES = [
+  "src/audio/dakshinamurthy/01.mp3",
+  "src/audio/dakshinamurthy/02.mp3",
+  "src/audio/dakshinamurthy/03.mp3",
+  "src/audio/dakshinamurthy/04.mp3",
+  "src/audio/dakshinamurthy/05.mp3",
+  "src/audio/dakshinamurthy/06.mp3",
+  "src/audio/dakshinamurthy/07.mp3",
+  "src/audio/dakshinamurthy/08.mp3",
+  "src/audio/dakshinamurthy/09.mp3",
+  "src/audio/dakshinamurthy/10.mp3",
+  "src/audio/dakshinamurthy/11.mp3",
+] as const;
+
+const LINGASHTAKAM_AUDIO_FILES = [
+  "src/audio/lingashtakam/01.mp3",
+  "src/audio/lingashtakam/02.mp3",
+  "src/audio/lingashtakam/03.mp3",
+  "src/audio/lingashtakam/04.mp3",
+  "src/audio/lingashtakam/05.mp3",
+  "src/audio/lingashtakam/06.mp3",
+  "src/audio/lingashtakam/07.mp3",
+  "src/audio/lingashtakam/08.mp3",
+  "src/audio/lingashtakam/09.mp3",
+] as const;
+
 export const CONTENT_PACKS: Record<ContentPackId, ContentPack> = {
   "sandhyavandanam-audio": {
     id: "sandhyavandanam-audio",
@@ -62,6 +91,46 @@ export const CONTENT_PACKS: Record<ContentPackId, ContentPack> = {
     description: "Per-section audio (Samavedam Shanmukha Sarma)",
     version: 1,
     files: LALITHA_AUDIO_FILES,
+  },
+  "dakshinamurthy-audio": {
+    id: "dakshinamurthy-audio",
+    title: "Dakshinamurthy Stotram audio",
+    titleTe: "దక్షిణామూర్తి స్తోత్ర శ్రవణం",
+    description: "Dhyanam and 10 slokas — one track per section",
+    version: 1,
+    files: DAKSHINAMURTHY_AUDIO_FILES,
+  },
+  "lingashtakam-audio": {
+    id: "lingashtakam-audio",
+    title: "Lingashtakam audio",
+    titleTe: "లింగాష్టక శ్రవణం",
+    description: "8 slokas and phala shruti — one track per section",
+    version: 1,
+    files: LINGASHTAKAM_AUDIO_FILES,
+  },
+  "arunachala-audio": {
+    id: "arunachala-audio",
+    title: "Arunachala Ashtakam audio",
+    titleTe: "అరుణాచలాష్టక శ్రవణం",
+    description: "11 verses — one track per section",
+    version: 1,
+    files: ARUNACHALA_AUDIO_FILES,
+  },
+  "chandrasekhara-audio": {
+    id: "chandrasekhara-audio",
+    title: "Chandrasekhara Ashtakam audio",
+    titleTe: "చంద్రశేఖరాష్టక శ్రవణం",
+    description: "8 slokas and phala shruti — one track per section",
+    version: 1,
+    files: CHANDRASEKHARA_AUDIO_FILES,
+  },
+  "jyotirlinga-audio": {
+    id: "jyotirlinga-audio",
+    title: "Dvadasa Jyotirlinga Stotram audio",
+    titleTe: "ద్వాదశ జ్యోతిర్లింగ శ్రవణం",
+    description: "12 jyotirlingas and phala shruti — one track per section",
+    version: 1,
+    files: JYOTIRLINGA_AUDIO_FILES,
   },
 };
 

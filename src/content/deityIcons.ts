@@ -5,6 +5,7 @@
 export const DEITY_ICONS = {
   gayatri: require("../../assets/deities/gayatri.jpg"),
   lalitha: require("../../assets/deities/lalita.jpeg"),
+  shiva: require("../../assets/deities/shiva.jpg"),
   vidhi: require("../../assets/deities/vidhi.jpg"),
 } as const;
 

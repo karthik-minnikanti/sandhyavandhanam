@@ -1,4 +1,11 @@
-export type ContentPackId = "sandhyavandanam-audio" | "lalitha-audio";
+export type ContentPackId =
+  | "sandhyavandanam-audio"
+  | "lalitha-audio"
+  | "dakshinamurthy-audio"
+  | "lingashtakam-audio"
+  | "arunachala-audio"
+  | "chandrasekhara-audio"
+  | "jyotirlinga-audio";
 
 export type ContentPack = {
   id: ContentPackId;

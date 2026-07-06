@@ -187,6 +187,14 @@ export default function TableOfContents({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [styles.coverBackBtn, pressed && styles.coverBackBtnPressed]}
+          accessibilityLabel="Back to cover"
+          hitSlop={8}
+        >
+          <Feather name="chevron-left" size={22} color={colors.goldLight} />
+        </Pressable>
         <View style={styles.headerTextBlock}>
           <Text style={styles.headerTitle}>Contents</Text>
           <Text style={styles.headerSubtitle}>విషయ సూచిక</Text>
@@ -237,12 +245,6 @@ export default function TableOfContents({ navigation }: Props) {
           <Text style={styles.gridHint}>Tap a deity to see available texts</Text>
         )}
       </ScrollView>
-      <Pressable
-        style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.backBtnText}>← Back to cover</Text>
-      </Pressable>
     </View>
   );
 }
@@ -255,12 +257,19 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     paddingTop: Platform.OS === "ios" ? 56 : 44,
     paddingBottom: 20,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceLight,
+  },
+  coverBackBtn: {
+    paddingVertical: 4,
+    paddingRight: 4,
+    marginRight: 4,
+  },
+  coverBackBtnPressed: {
+    opacity: 0.7,
   },
   headerTextBlock: {
     flex: 1,
@@ -293,7 +302,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 24,
-    paddingBottom: 100,
+    paddingBottom: 32,
   },
   grid: {
     flexDirection: "row",
@@ -409,23 +418,5 @@ const styles = StyleSheet.create({
   },
   listDownloadPressed: {
     opacity: 0.5,
-  },
-  backBtn: {
-    position: "absolute",
-    bottom: 32,
-    left: 24,
-    right: 24,
-    paddingVertical: 14,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  backBtnPressed: {
-    opacity: 0.9,
-  },
-  backBtnText: {
-    color: colors.textOnDark,
-    fontWeight: "600",
-    fontSize: 15,
   },
 });
