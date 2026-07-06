@@ -16,16 +16,23 @@ import { colors } from "../theme/colors";
 import { useApp } from "../context/AppContext";
 import { useContentPacks } from "../context/ContentPackContext";
 import type { ContentPackId } from "../contentPacks/types";
+import { isAudioPackPublished } from "../contentPacks/manifest";
 import {
   CONTENTS_GROUPS,
   findCatalogItem,
   findGroupForScreen,
+  getCatalogItemsForScreens,
   type CatalogItem,
   type DeityGroup,
 } from "../content/catalog";
 import DeityIconBox from "../components/DeityIconBox";
 import ContinueReadingLink from "../components/ContinueReadingLink";
+import FavoriteStarButton from "../components/FavoriteStarButton";
 import { navigateToCatalogItem } from "../utils/catalogNavigation";
+import {
+  contentInsetStyle,
+  contentInnerWidth,
+} from "../utils/contentLayout";
 import { getSelectedContentsGroup, setSelectedContentsGroup } from "../storage/preferences";
 
 type Props = {
@@ -34,47 +41,53 @@ type Props = {
 
 const GRID_GAP = 12;
 const GRID_COLUMNS = 3;
+const TILE_RADIUS = 12;
 
 function DeityGridTile({
   group,
   width,
   iconWidth,
   selected,
+  expanded,
   onPress,
 }: {
   group: DeityGroup;
   width: number;
   iconWidth: number;
   selected: boolean;
+  expanded?: boolean;
   onPress: () => void;
 }) {
   return (
     <Pressable
-      style={({ pressed }) => [
-        styles.tile,
-        { width },
-        selected && styles.tileSelected,
-        pressed && styles.tilePressed,
-      ]}
+      style={({ pressed }) => [{ width }, pressed && styles.tilePressed]}
       onPress={onPress}
       accessibilityLabel={group.deityEn}
     >
-      <View style={styles.iconWrap}>
-        <DeityIconBox
-          source={group.icon}
-          width={iconWidth}
-          aspectRatio={1.25}
-          accessibilityLabel={group.deityEn}
-        />
-        {group.items.length > 1 ? (
-          <View style={styles.itemCount}>
-            <Text style={styles.itemCountText}>{group.items.length}</Text>
-          </View>
-        ) : null}
+      <View
+        style={[
+          styles.tile,
+          selected && !expanded && styles.tileSelected,
+          selected && expanded && styles.tileExpanded,
+        ]}
+      >
+        <View style={styles.iconWrap}>
+          <DeityIconBox
+            source={group.icon}
+            width={iconWidth}
+            aspectRatio={1.25}
+            accessibilityLabel={group.deityEn}
+          />
+          {group.items.length > 1 ? (
+            <View style={styles.itemCount}>
+              <Text style={styles.itemCountText}>{group.items.length}</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={styles.tileLabel} numberOfLines={1}>
+          {group.gridLabelTe}
+        </Text>
       </View>
-      <Text style={styles.tileLabel} numberOfLines={1}>
-        {group.gridLabelTe}
-      </Text>
     </Pressable>
   );
 }
@@ -84,20 +97,26 @@ function CatalogListItem({
   onOpen,
   onDownload,
   packStatus,
+  embedded,
 }: {
   item: CatalogItem;
   onOpen: () => void;
   onDownload: (packId: ContentPackId) => void;
   packStatus: { downloaded: number; total: number; downloading: boolean } | null;
+  embedded?: boolean;
 }) {
   const isComplete =
     packStatus != null &&
     packStatus.total > 0 &&
     packStatus.downloaded >= packStatus.total;
   const isDownloading = packStatus?.downloading ?? false;
+  const showDownload =
+    item.audioPackId != null &&
+    isAudioPackPublished(item.audioPackId) &&
+    Platform.OS !== "web";
 
   return (
-    <View style={styles.listItem}>
+    <View style={[styles.listItem, embedded && styles.listItemEmbedded]}>
       <Pressable
         style={({ pressed }) => [styles.listItemMain, pressed && styles.listItemPressed]}
         onPress={onOpen}
@@ -107,13 +126,14 @@ function CatalogListItem({
         {item.description ? (
           <Text style={styles.listItemDesc}>{item.description}</Text>
         ) : null}
-        {packStatus && isDownloading && Platform.OS !== "web" ? (
+        {packStatus && isDownloading && showDownload ? (
           <Text style={styles.audioStatus}>
             {packStatus.downloaded}/{packStatus.total}
           </Text>
         ) : null}
       </Pressable>
-      {item.audioPackId && Platform.OS !== "web" ? (
+      <FavoriteStarButton screenKey={item.key} size={18} />
+      {showDownload ? (
         <Pressable
           style={({ pressed }) => [
             styles.listDownload,
@@ -148,10 +168,13 @@ function CatalogListItem({
 
 export default function TableOfContents({ navigation }: Props) {
   const { width: screenWidth } = useWindowDimensions();
-  const { lastSection } = useApp();
+  const { lastSection, favorites } = useApp();
   const { progress, downloadPack } = useContentPacks();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [groupLoaded, setGroupLoaded] = useState(false);
+  const [favouritesOpen, setFavouritesOpen] = useState(false);
+
+  const innerWidth = contentInnerWidth(screenWidth);
 
   const continueReading = useMemo(() => {
     if (!lastSection) return null;
@@ -159,6 +182,21 @@ export default function TableOfContents({ navigation }: Props) {
     if (!item) return null;
     return { item, page: lastSection.page };
   }, [lastSection]);
+
+  const favoriteItems = useMemo(
+    () => getCatalogItemsForScreens(favorites),
+    [favorites]
+  );
+
+  const openItem = useCallback(
+    (item: CatalogItem, explicitPage?: number) => {
+      const resumePage =
+        explicitPage ??
+        (lastSection?.screenKey === item.key ? lastSection.page : undefined);
+      navigateToCatalogItem(navigation.navigate, item, resumePage);
+    },
+    [navigation, lastSection]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -187,26 +225,20 @@ export default function TableOfContents({ navigation }: Props) {
   }, []);
 
   const tileWidth =
-    (screenWidth - 48 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
+    (innerWidth - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
   const iconWidth = Math.min(72, Math.round(tileWidth - 8));
 
   const handleOpenItem = useCallback(
     (item: CatalogItem) => {
-      const resumePage =
-        lastSection?.screenKey === item.key ? lastSection.page : undefined;
-      navigateToCatalogItem(navigation.navigate, item, resumePage);
+      openItem(item);
     },
-    [navigation, lastSection]
+    [openItem]
   );
 
   const handleContinue = useCallback(() => {
     if (!continueReading) return;
-    navigateToCatalogItem(
-      navigation.navigate,
-      continueReading.item,
-      continueReading.page
-    );
-  }, [navigation, continueReading]);
+    openItem(continueReading.item, continueReading.page);
+  }, [openItem, continueReading]);
 
   const handleDownloadAudio = useCallback(
     async (packId: ContentPackId) => {
@@ -221,20 +253,48 @@ export default function TableOfContents({ navigation }: Props) {
 
   const selectedGroup = CONTENTS_GROUPS.find((g) => g.id === selectedGroupId);
 
+  const deityRows = useMemo(() => {
+    const rows: DeityGroup[][] = [];
+    for (let i = 0; i < CONTENTS_GROUPS.length; i += GRID_COLUMNS) {
+      rows.push(CONTENTS_GROUPS.slice(i, i + GRID_COLUMNS));
+    }
+    return rows;
+  }, []);
+
+  const renderListPanel = (group: DeityGroup) => (
+    <View style={styles.listPanel}>
+      <Text style={styles.listPanelTitle}>{group.deityTe}</Text>
+      <Text style={styles.listPanelSubtitle}>{group.deityEn}</Text>
+      {group.items.map((item) => (
+        <CatalogListItem
+          key={item.key}
+          item={item}
+          onOpen={() => handleOpenItem(item)}
+          onDownload={handleDownloadAudio}
+          packStatus={
+            item.audioPackId && isAudioPackPublished(item.audioPackId)
+              ? progress[item.audioPackId]
+              : null
+          }
+          embedded
+        />
+      ))}
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, contentInsetStyle(screenWidth)]}>
         <Pressable
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("BookCover")}
           style={({ pressed }) => [styles.coverBackBtn, pressed && styles.coverBackBtnPressed]}
           accessibilityLabel="Back to cover"
           hitSlop={8}
         >
-          <Feather name="chevron-left" size={22} color={colors.goldLight} />
+          <Feather name="chevron-left" size={20} color={colors.goldLight} />
         </Pressable>
         <View style={styles.headerTextBlock}>
           <Text style={styles.headerTitle}>Contents</Text>
-          <Text style={styles.headerSubtitle}>విషయ సూచిక</Text>
         </View>
         <Pressable
           onPress={() => navigation.navigate("Preferences")}
@@ -246,7 +306,10 @@ export default function TableOfContents({ navigation }: Props) {
       </View>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          contentInsetStyle(screenWidth),
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {continueReading ? (
@@ -258,36 +321,78 @@ export default function TableOfContents({ navigation }: Props) {
           />
         ) : null}
 
-        <View style={styles.grid}>
-          {CONTENTS_GROUPS.map((group) => (
-            <DeityGridTile
-              key={group.id}
-              group={group}
-              width={tileWidth}
-              iconWidth={iconWidth}
-              selected={selectedGroupId === group.id}
-              onPress={() => handleTilePress(group)}
-            />
-          ))}
-        </View>
-
-        {selectedGroup ? (
-          <View style={styles.listPanel}>
-            <Text style={styles.listPanelTitle}>{selectedGroup.deityTe}</Text>
-            <Text style={styles.listPanelSubtitle}>{selectedGroup.deityEn}</Text>
-            {selectedGroup.items.map((item) => (
-              <CatalogListItem
-                key={item.key}
-                item={item}
-                onOpen={() => handleOpenItem(item)}
-                onDownload={handleDownloadAudio}
-                packStatus={
-                  item.audioPackId ? progress[item.audioPackId] : null
-                }
+        {favoriteItems.length > 0 ? (
+          <View style={styles.favouritesPanel}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.favouritesHeader,
+                pressed && styles.listItemPressed,
+              ]}
+              onPress={() => setFavouritesOpen((open) => !open)}
+              accessibilityLabel={
+                favouritesOpen ? "Collapse favourites" : "Expand favourites"
+              }
+            >
+              <Text style={styles.favouritesHeaderText}>
+                Favourites ({favoriteItems.length})
+              </Text>
+              <Feather
+                name={favouritesOpen ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={colors.goldLight}
               />
-            ))}
+            </Pressable>
+            {favouritesOpen
+              ? favoriteItems.map((item) => (
+                  <View key={item.key} style={styles.favouriteRow}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.favouriteRowMain,
+                        pressed && styles.listItemPressed,
+                      ]}
+                      onPress={() => openItem(item)}
+                    >
+                      <Text style={styles.favouriteRowTitle} numberOfLines={1}>
+                        {item.titleTe}
+                      </Text>
+                    </Pressable>
+                    <FavoriteStarButton screenKey={item.key} size={16} />
+                  </View>
+                ))
+              : null}
           </View>
-        ) : groupLoaded ? (
+        ) : null}
+
+        {deityRows.map((row, rowIndex) => {
+          const rowExpanded =
+            selectedGroup != null && row.some((g) => g.id === selectedGroup.id);
+
+          return (
+            <View key={rowIndex} style={styles.rowBlock}>
+              <View style={styles.gridRow}>
+                {row.map((group) => {
+                  const isSelected = selectedGroupId === group.id;
+                  return (
+                    <DeityGridTile
+                      key={group.id}
+                      group={group}
+                      width={tileWidth}
+                      iconWidth={iconWidth}
+                      selected={isSelected}
+                      expanded={isSelected && rowExpanded}
+                      onPress={() => handleTilePress(group)}
+                    />
+                  );
+                })}
+              </View>
+              {rowExpanded && selectedGroup
+                ? renderListPanel(selectedGroup)
+                : null}
+            </View>
+          );
+        })}
+
+        {!selectedGroup && groupLoaded ? (
           <Text style={styles.gridHint}>Tap a deity to see available texts</Text>
         ) : null}
       </ScrollView>
@@ -303,9 +408,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: Platform.OS === "ios" ? 56 : 44,
-    paddingBottom: 20,
-    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "ios" ? 52 : 40,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceLight,
   },
@@ -321,25 +425,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "600",
     color: colors.textOnDark,
   },
-  headerSubtitle: {
-    fontSize: 14,
-    color: colors.textOnDarkMuted,
-    marginTop: 4,
-  },
   menuBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginLeft: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginLeft: 4,
   },
   menuBtnPressed: {
     opacity: 0.8,
   },
   menuBtnText: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "600",
     color: colors.goldLight,
   },
@@ -347,22 +446,73 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 24,
-    paddingBottom: 32,
+    paddingTop: 12,
+    paddingBottom: 28,
   },
-  grid: {
+  favouritesPanel: {
+    marginBottom: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.surfaceLight,
+    overflow: "hidden",
+  },
+  favouritesHeader: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  favouritesHeaderText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.goldLight,
+  },
+  favouriteRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: colors.background,
+  },
+  favouriteRowMain: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingLeft: 12,
+    paddingRight: 4,
+  },
+  favouriteRowTitle: {
+    fontSize: 13,
+    color: colors.textOnDark,
+  },
+  gridRow: {
+    flexDirection: "row",
     gap: GRID_GAP,
   },
+  rowBlock: {
+    marginBottom: GRID_GAP,
+  },
   tile: {
+    width: "100%",
     alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 4,
-    borderRadius: 12,
   },
   tileSelected: {
     backgroundColor: colors.surface,
+    borderRadius: TILE_RADIUS,
+    borderWidth: 1,
+    borderColor: colors.surfaceLight,
+  },
+  tileExpanded: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: TILE_RADIUS,
+    borderTopRightRadius: TILE_RADIUS,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: colors.surfaceLight,
   },
   tilePressed: {
     opacity: 0.85,
@@ -402,23 +552,29 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   listPanel: {
-    marginTop: 20,
-    padding: 14,
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderBottomLeftRadius: TILE_RADIUS,
+    borderBottomRightRadius: TILE_RADIUS,
     borderWidth: 1,
+    borderTopWidth: 0,
     borderColor: colors.surfaceLight,
+    overflow: "hidden",
+    marginTop: -1,
+    paddingHorizontal: 12,
+    paddingTop: 2,
+    paddingBottom: 10,
   },
   listPanelTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
     color: colors.goldLight,
+    paddingTop: 4,
   },
   listPanelSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textOnDarkMuted,
     marginTop: 2,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   listItem: {
     flexDirection: "row",
@@ -426,29 +582,34 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.background,
   },
+  listItemEmbedded: {
+    borderTopWidth: 0,
+    marginTop: 4,
+    paddingTop: 4,
+  },
   listItemMain: {
     flex: 1,
-    paddingVertical: 12,
-    paddingRight: 8,
+    paddingVertical: 9,
+    paddingRight: 6,
   },
   listItemPressed: {
     opacity: 0.9,
   },
   listItemTe: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     color: colors.textOnDark,
   },
   listItemEn: {
-    fontSize: 12,
-    color: colors.textOnDarkMuted,
-    marginTop: 2,
-  },
-  listItemDesc: {
     fontSize: 11,
     color: colors.textOnDarkMuted,
-    marginTop: 4,
-    lineHeight: 16,
+    marginTop: 1,
+  },
+  listItemDesc: {
+    fontSize: 10,
+    color: colors.textOnDarkMuted,
+    marginTop: 2,
+    lineHeight: 14,
   },
   audioStatus: {
     fontSize: 11,

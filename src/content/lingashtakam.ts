@@ -1,8 +1,10 @@
 /**
  * శ్రీ లింగాష్టకం — Telugu (Adi Shankaracharya)
  * Source: https://stotranidhi.com/lingashtakam-in-telugu/
+ * Audio: vedasonline.in
  */
 import type { StotramReaderPage, StotramSection } from "./stotramTypes";
+import { singleStotramReaderPage } from "./stotramTypes";
 
 export type { StotramSection };
 
@@ -66,11 +68,9 @@ export const lingashtakamSections: StotramSection[] = [
 ];
 
 export function getLingashtakamReaderPages(): StotramReaderPage[] {
-  return [
-    {
-      titleTe: "లింగాష్టకం",
-      titleEn: "Lingashtakam",
-      sections: lingashtakamSections,
-    },
-  ];
+  return singleStotramReaderPage(
+    "లింగాష్టకం",
+    lingashtakamSections,
+    "Lingashtakam"
+  );
 }

@@ -19,9 +19,14 @@ function readerRoute(
     : { name: item.key };
 }
 
-/** Reader back — always land on Contents, not whatever is below in the stack. */
+/** Reader back — return to the contents list. */
 export function navigateToContents(navigation: Pick<StackNavigation, "navigate">) {
   navigation.navigate("TableOfContents");
+}
+
+/** @deprecated Use navigateToContents from reader screens */
+export function navigateToCover(navigation: Pick<StackNavigation, "navigate">) {
+  navigateToContents(navigation);
 }
 
 /** Cover → Continue: keep Cover and Contents in the stack under the reader. */
@@ -69,6 +74,33 @@ export function navigateToCatalogItem(
       return;
     case "DvadasaJyotirlingaStotram":
       navigate("DvadasaJyotirlingaStotram", route.params);
+      return;
+    case "SankatMochanaHanumanAshtakam":
+      navigate("SankatMochanaHanumanAshtakam", route.params);
+      return;
+    case "HanumanChalisa":
+      navigate("HanumanChalisa", route.params);
+      return;
+    case "HanumadAshtakam":
+      navigate("HanumadAshtakam", route.params);
+      return;
+    case "GaneshaPancharatnam":
+      navigate("GaneshaPancharatnam", route.params);
+      return;
+    case "GananayakaAshtakam":
+      navigate("GananayakaAshtakam", route.params);
+      return;
+    case "GovindaNamalu":
+      navigate("GovindaNamalu", route.params);
+      return;
+    case "VenkateshaAshtakam":
+      navigate("VenkateshaAshtakam", route.params);
+      return;
+    case "VishnuSahasranamam":
+      navigate("VishnuSahasranamam", route.params);
+      return;
+    case "SubrahmanyaAshtakam":
+      navigate("SubrahmanyaAshtakam", route.params);
       return;
     case "YagnopaveetamVidhi":
       navigate("YagnopaveetamVidhi");

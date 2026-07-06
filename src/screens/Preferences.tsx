@@ -8,16 +8,19 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  useWindowDimensions,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../types/navigation";
 import { colors } from "../theme/colors";
 import { useApp } from "../context/AppContext";
 import { useContentPacks } from "../context/ContentPackContext";
-import { CONTENT_PACK_LIST } from "../contentPacks/manifest";
+import { PUBLISHED_AUDIO_PACK_LIST } from "../contentPacks/manifest";
 import {
   requestReminderPermission,
 } from "../notifications/reminder";
+import { contentInsetStyle } from "../utils/contentLayout";
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, "Preferences">;
@@ -34,6 +37,7 @@ export default function Preferences({ navigation }: Props) {
     showHintsAgain,
   } = useApp();
   const { progress, downloadPack, deletePack } = useContentPacks();
+  const { width: screenWidth } = useWindowDimensions();
   const [reminderHour, setReminderHour] = useState(reminder.hour);
   const [reminderMinute, setReminderMinute] = useState(reminder.minute);
 
@@ -88,7 +92,7 @@ export default function Preferences({ navigation }: Props) {
   }, [reminder.enabled, reminderHour, reminderMinute, setReminder]);
 
   const handleDownload = useCallback(
-    async (packId: (typeof CONTENT_PACK_LIST)[number]["id"]) => {
+    async (packId: (typeof PUBLISHED_AUDIO_PACK_LIST)[number]["id"]) => {
       try {
         await downloadPack(packId);
       } catch {
@@ -99,7 +103,7 @@ export default function Preferences({ navigation }: Props) {
   );
 
   const handleDelete = useCallback(
-    async (packId: (typeof CONTENT_PACK_LIST)[number]["id"]) => {
+    async (packId: (typeof PUBLISHED_AUDIO_PACK_LIST)[number]["id"]) => {
       await deletePack(packId);
     },
     [deletePack]
@@ -107,18 +111,25 @@ export default function Preferences({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, contentInsetStyle(screenWidth)]}>
         <Pressable
           onPress={() => navigation.goBack()}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+          accessibilityLabel="Back"
+          hitSlop={8}
         >
-          <Text style={styles.backBtnText}>← Back</Text>
+          <Feather name="chevron-left" size={20} color={colors.goldLight} />
         </Pressable>
-        <Text style={styles.headerTitle}>Preferences</Text>
+        <View style={styles.headerTextBlock}>
+          <Text style={styles.headerTitle}>Preferences</Text>
+        </View>
       </View>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          contentInsetStyle(screenWidth),
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.sectionLabel}>Font size</Text>
@@ -233,7 +244,7 @@ export default function Preferences({ navigation }: Props) {
           Audio is fetched from GitHub when you play a section. Download a pack
           here to keep it available offline.
         </Text>
-        {CONTENT_PACK_LIST.map((pack) => {
+        {PUBLISHED_AUDIO_PACK_LIST.map((pack) => {
           const status = progress[pack.id];
           const isComplete =
             status.total > 0 && status.downloaded >= status.total;
@@ -307,33 +318,30 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: Platform.OS === "ios" ? 52 : 44,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "ios" ? 52 : 40,
+    paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceLight,
   },
   backBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    marginRight: 12,
+    paddingVertical: 4,
+    paddingRight: 4,
+    marginRight: 4,
   },
-  pressed: { opacity: 0.8 },
-  backBtnText: {
-    color: colors.goldLight,
-    fontSize: 14,
-    fontWeight: "600",
+  pressed: { opacity: 0.7 },
+  headerTextBlock: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "600",
     color: colors.textOnDark,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    padding: 24,
+    paddingTop: 12,
     paddingBottom: 40,
   },
   sectionLabel: {

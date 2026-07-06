@@ -10,4 +10,13 @@ export type RootStackParamList = {
   ArunachalaAshtakam: { initialPage?: number } | undefined;
   ChandrasekharaAshtakam: { initialPage?: number } | undefined;
   DvadasaJyotirlingaStotram: { initialPage?: number } | undefined;
+  SankatMochanaHanumanAshtakam: { initialPage?: number } | undefined;
+  HanumanChalisa: { initialPage?: number } | undefined;
+  HanumadAshtakam: { initialPage?: number } | undefined;
+  GaneshaPancharatnam: { initialPage?: number } | undefined;
+  GananayakaAshtakam: { initialPage?: number } | undefined;
+  GovindaNamalu: { initialPage?: number } | undefined;
+  VenkateshaAshtakam: { initialPage?: number } | undefined;
+  VishnuSahasranamam: { initialPage?: number } | undefined;
+  SubrahmanyaAshtakam: { initialPage?: number } | undefined;
 };

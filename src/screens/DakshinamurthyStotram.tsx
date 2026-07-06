@@ -9,6 +9,7 @@ import {
   UIManager,
   Platform,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import { useKeepAwake } from "expo-keep-awake";
 import { useRoute, RouteProp } from "@react-navigation/native";
@@ -26,6 +27,7 @@ import type { FontSize } from "../storage/keys";
 import DeityIconBox from "../components/DeityIconBox";
 import MantraText from "../components/MantraText";
 import ReaderAudioControl from "../components/ReaderAudioControl";
+import FavoriteStarButton from "../components/FavoriteStarButton";
 import SectionPicker, { type SectionPickerItem } from "../components/SectionPicker";
 import PageIndicatorButton from "../components/PageIndicatorButton";
 import { showAudioError } from "../utils/audioError";
@@ -36,13 +38,16 @@ import {
   hasDakshinamurthyPageAudio,
   DAKSHINAMURTHY_AUDIO_PACK,
 } from "../audio/dakshinamurthySectionAudio";
+import { isAudioPackPublished } from "../contentPacks/manifest";
 import { DEITY_ICONS } from "../content/deityIcons";
 import ReaderOnboarding, {
   SWIPE_NAV_ONBOARDING_STEPS,
 } from "../components/ReaderOnboarding";
-import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
+import { readerNavBarStyle, readerTopBarStyle, readerBarStyles } from "../utils/readerLayout";
 import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
 import { navigateToContents } from "../utils/catalogNavigation";
+import { useContentLayout } from "../utils/contentLayout";
+import ReaderNavButton from "../components/ReaderNavButton";
 
 const shivaImage = DEITY_ICONS.shiva;
 const READER_PAGES = getDakshinamurthyReaderPages();
@@ -167,12 +172,15 @@ export default function DakshinamurthyStotram({ navigation }: Props) {
   } = useApp();
   const { resolveAudioTracks } = useContentPacks();
   const insets = useSafeAreaInsets();
+  const { contentInset, bookPageFrame } = useContentLayout();
   const fontScale = FONT_SCALE[fontSize];
   const pageScrollRef = useRef<ScrollView>(null);
 
   const readerPageIndex = currentPage > 0 ? currentPage - 1 : -1;
   const audioTrackPaths = getDakshinamurthyPageAudioTrackPaths(readerPageIndex);
-  const hasAudio = hasDakshinamurthyPageAudio(readerPageIndex);
+  const hasAudio =
+    isAudioPackPublished(DAKSHINAMURTHY_AUDIO_PACK) &&
+    hasDakshinamurthyPageAudio(readerPageIndex);
 
   const sectionItems = useMemo((): SectionPickerItem[] => {
     const items: SectionPickerItem[] = [{ label: "Cover", page: 0 }];
@@ -339,24 +347,29 @@ export default function DakshinamurthyStotram({ navigation }: Props) {
           ]}
         />
       </View>
-      <View style={[styles.topBar, readerTopBarStyle(insets)]}>
+      <View style={[readerBarStyles.topBar, readerTopBarStyle(insets), contentInset]}>
         <Pressable
           onPress={() => navigateToContents(navigation)}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+          accessibilityLabel="Back to contents"
+          hitSlop={8}
         >
-          <Text style={styles.backBtnText}>← Contents</Text>
+          <Feather name="chevron-left" size={20} color={colors.goldLight} />
         </Pressable>
-        <ReaderAudioControl
-          packId={DAKSHINAMURTHY_AUDIO_PACK}
-          hasAudio={hasAudio}
-          isPlaying={isPlaying}
-          audioLoading={audioLoading}
-          onPlayPause={handlePlayPause}
-        />
+        <View style={styles.topBarActions}>
+          <FavoriteStarButton screenKey="DakshinamurthyStotram" size={20} />
+          <ReaderAudioControl
+            packId={DAKSHINAMURTHY_AUDIO_PACK}
+            hasAudio={hasAudio}
+            isPlaying={isPlaying}
+            audioLoading={audioLoading}
+            onPlayPause={handlePlayPause}
+          />
+        </View>
       </View>
 
-      <View style={styles.contentHalf} {...pageSwipe.panHandlers}>
-        <View style={styles.bookPage}>
+      <View style={[styles.contentHalf, contentInset]} {...pageSwipe.panHandlers}>
+        <View style={[styles.bookPage, bookPageFrame]}>
           <ScrollView
             ref={pageScrollRef}
             style={styles.pageScroll}
@@ -368,29 +381,13 @@ export default function DakshinamurthyStotram({ navigation }: Props) {
         </View>
       </View>
 
-      <View style={[styles.navBar, readerNavBarStyle(insets)]}>
-        <Pressable
-          onPress={goPrev}
-          disabled={!canGoPrev}
-          style={[styles.navBtn, !canGoPrev && styles.navBtnDisabled]}
-        >
-          <Text style={[styles.navBtnText, !canGoPrev && styles.navBtnTextDisabled]}>
-            ← Previous
-          </Text>
-        </Pressable>
+      <View style={[readerBarStyles.navBar, readerNavBarStyle(insets), contentInset]}>
+        <ReaderNavButton direction="prev" disabled={!canGoPrev} onPress={goPrev} />
         <PageIndicatorButton
           label={`${currentPage + 1} / ${TOTAL_PAGES}`}
           onPress={() => setSectionPickerVisible(true)}
         />
-        <Pressable
-          onPress={goNext}
-          disabled={!canGoNext}
-          style={[styles.navBtn, !canGoNext && styles.navBtnDisabled]}
-        >
-          <Text style={[styles.navBtnText, !canGoNext && styles.navBtnTextDisabled]}>
-            Next →
-          </Text>
-        </Pressable>
+        <ReaderNavButton direction="next" disabled={!canGoNext} onPress={goNext} />
       </View>
 
       <ReaderOnboarding
@@ -426,27 +423,16 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: colors.gold,
   },
-  topBar: {
+  backBtn: {
+    paddingVertical: 4,
+    paddingRight: 4,
+    marginRight: 4,
+  },
+  topBarActions: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingBottom: 10,
-    paddingHorizontal: 16,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceLight,
   },
-  backBtn: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-  },
-  pressed: { opacity: 0.8 },
-  backBtnText: {
-    color: colors.goldLight,
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  pressed: { opacity: 0.7 },
   contentHalf: {
     flex: 1,
     paddingHorizontal: 16,
@@ -512,40 +498,5 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.accent,
     marginBottom: 6,
-  },
-  navBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.gold,
-  },
-  navBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    minWidth: 88,
-    alignItems: "center",
-  },
-  navBtnDisabled: {
-    backgroundColor: colors.surfaceLight,
-    opacity: 0.6,
-  },
-  navBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.goldLight,
-  },
-  navBtnTextDisabled: {
-    color: colors.textOnDarkMuted,
-  },
-  pageIndicator: {
-    fontSize: 13,
-    color: colors.textOnDarkMuted,
-    fontWeight: "600",
   },
 });

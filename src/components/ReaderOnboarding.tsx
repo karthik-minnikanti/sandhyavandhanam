@@ -9,6 +9,7 @@ import {
   Easing,
   Platform,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../theme/colors";
 
@@ -170,7 +171,7 @@ export default function ReaderOnboarding({
           {step.kind === "swipe" ? <SwipeDemo /> : null}
           {step.kind === "speaker" ? (
             <View style={styles.demoSpeakerRow}>
-              <Text style={styles.demoBack}>← Contents</Text>
+              <Feather name="chevron-left" size={20} color={colors.goldLight} />
               <View style={styles.demoSpeakerBtn}>
                 <Text style={styles.demoSpeakerIcon}>🔊</Text>
               </View>
@@ -394,10 +395,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     marginBottom: 4,
-  },
-  demoBack: {
-    color: colors.goldLight,
-    fontSize: 13,
   },
   demoSpeakerBtn: {
     width: 36,

@@ -25,8 +25,8 @@ export default function PageIndicatorButton({ label, onPress }: Props) {
 
 const styles = StyleSheet.create({
   btn: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
     maxWidth: 140,
   },
   btnPressed: {

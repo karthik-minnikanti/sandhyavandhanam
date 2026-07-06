@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   useWindowDimensions,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Audio } from "expo-av";
 import { useKeepAwake } from "expo-keep-awake";
@@ -32,6 +33,7 @@ import {
   INLINE_AUDIO_SURYOPASTHANAM_MADHYAHNA_PATH,
   SANDHYAVANDANAM_AUDIO_PACK,
 } from "../audio/sectionAudio";
+import { isAudioPackPublished } from "../contentPacks/manifest";
 import { useContentPacks } from "../context/ContentPackContext";
 import type { AudioUriSource } from "../contentPacks/types";
 import { useApp } from "../context/AppContext";
@@ -40,13 +42,16 @@ import ReaderOnboarding, {
   SANDHYA_ONBOARDING_STEPS,
 } from "../components/ReaderOnboarding";
 import ReaderAudioControl from "../components/ReaderAudioControl";
+import FavoriteStarButton from "../components/FavoriteStarButton";
 import SectionPicker, { type SectionPickerItem } from "../components/SectionPicker";
 import PageIndicatorButton from "../components/PageIndicatorButton";
 import { showAudioError } from "../utils/audioError";
 import DeityIconBox from "../components/DeityIconBox";
-import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
+import { readerNavBarStyle, readerTopBarStyle, readerBarStyles } from "../utils/readerLayout";
 import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
 import { navigateToContents } from "../utils/catalogNavigation";
+import { useContentLayout } from "../utils/contentLayout";
+import ReaderNavButton from "../components/ReaderNavButton";
 
 import { DEITY_ICONS } from "../content/deityIcons";
 
@@ -388,7 +393,9 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
 
   const sectionIndex = currentPage > 0 ? currentPage - 1 : -1;
   const audioTrackPaths = getSectionAudioTrackPaths(sectionIndex);
-  const hasAudio = audioTrackPaths.length > 0;
+  const hasAudio =
+    isAudioPackPublished(SANDHYAVANDANAM_AUDIO_PACK) &&
+    audioTrackPaths.length > 0;
   const resolvedTracksRef = useRef<AudioUriSource[]>([]);
 
   const playNextTrackRef = useRef<((trackIndex: number) => Promise<void>) | null>(null);
@@ -548,6 +555,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { contentInset, bookPageFrame } = useContentLayout();
   const isLandscape = windowWidth > windowHeight;
   const canGoPrev = currentPage > 0;
   const canGoNext = currentPage < TOTAL_PAGES - 1;
@@ -574,24 +582,29 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
           ]}
         />
       </View>
-      <View style={[styles.topBar, readerTopBarStyle(insets), isLandscape && styles.topBarLandscape]}>
+      <View style={[readerBarStyles.topBar, readerTopBarStyle(insets), contentInset, isLandscape && styles.topBarLandscape]}>
         <Pressable
           onPress={() => navigateToContents(navigation)}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+          accessibilityLabel="Back to contents"
+          hitSlop={8}
         >
-          <Text style={[styles.backBtnText, isLandscape && styles.backBtnTextLandscape]}>← Contents</Text>
+          <Feather name="chevron-left" size={20} color={colors.goldLight} />
         </Pressable>
-        <ReaderAudioControl
-          packId={SANDHYAVANDANAM_AUDIO_PACK}
-          hasAudio={hasAudio}
-          isPlaying={isPlaying}
-          audioLoading={audioLoading}
-          onPlayPause={handlePlayPause}
-          compact={isLandscape}
-        />
+        <View style={styles.topBarActions}>
+          <FavoriteStarButton screenKey="SandhyavandanamVidhanam" size={20} />
+          <ReaderAudioControl
+            packId={SANDHYAVANDANAM_AUDIO_PACK}
+            hasAudio={hasAudio}
+            isPlaying={isPlaying}
+            audioLoading={audioLoading}
+            onPlayPause={handlePlayPause}
+            compact={isLandscape}
+          />
+        </View>
       </View>
 
-      <View style={[styles.mainContentWrapper, isLandscape && styles.mainContentWrapperLandscape]}>
+      <View style={[styles.mainContentWrapper, contentInset, isLandscape && styles.mainContentWrapperLandscape]}>
         <View
           style={[
             styles.contentHalf,
@@ -600,7 +613,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
           ]}
           {...pageSwipe.panHandlers}
         >
-          <View style={styles.bookPage}>
+          <View style={[styles.bookPage, bookPageFrame]}>
             <ScrollView
               ref={pageScrollRef}
               style={styles.pageScroll}
@@ -658,47 +671,13 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
       </View>
 
       {/* Bottom nav bar */}
-      <View style={[styles.navBar, readerNavBarStyle(insets)]}>
-        <Pressable
-          onPress={goPrev}
-          disabled={!canGoPrev}
-          style={[
-            styles.navBtn,
-            !canGoPrev && styles.navBtnDisabled,
-          ]}
-        >
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.navBtnText,
-              !canGoPrev && styles.navBtnTextDisabled,
-            ]}
-          >
-            Previous
-          </Text>
-        </Pressable>
+      <View style={[readerBarStyles.navBar, readerNavBarStyle(insets), contentInset]}>
+        <ReaderNavButton direction="prev" disabled={!canGoPrev} onPress={goPrev} />
         <PageIndicatorButton
           label={`Section ${currentPage + 1} of ${TOTAL_PAGES}`}
           onPress={() => setSectionPickerVisible(true)}
         />
-        <Pressable
-          onPress={goNext}
-          disabled={!canGoNext}
-          style={[
-            styles.navBtn,
-            !canGoNext && styles.navBtnDisabled,
-          ]}
-        >
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.navBtnText,
-              !canGoNext && styles.navBtnTextDisabled,
-            ]}
-          >
-            Next
-          </Text>
-        </Pressable>
+        <ReaderNavButton direction="next" disabled={!canGoNext} onPress={goNext} />
       </View>
 
       <ReaderOnboarding
@@ -734,34 +713,21 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: colors.gold,
   },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingBottom: 10,
-    paddingHorizontal: 16,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceLight,
-  },
   topBarLandscape: {
-    paddingTop: 10,
-    paddingBottom: 6,
+    paddingTop: 4,
+    paddingBottom: 2,
     paddingHorizontal: 12,
   },
   backBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingVertical: 4,
+    paddingRight: 4,
+    marginRight: 4,
   },
-  pressed: { opacity: 0.8 },
-  backBtnText: {
-    color: colors.goldLight,
-    fontSize: 14,
-    fontWeight: "600",
+  topBarActions: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  backBtnTextLandscape: {
-    fontSize: 13,
-  },
+  pressed: { opacity: 0.7 },
   speakerBtn: {
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -929,43 +895,6 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
     borderLeftWidth: 3,
     borderLeftColor: colors.border,
-  },
-  navBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.gold,
-  },
-  navBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    minWidth: 80,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  navBtnDisabled: {
-    backgroundColor: colors.surfaceLight,
-    opacity: 0.6,
-  },
-  navBtnText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.goldLight,
-    textAlign: "center",
-  },
-  navBtnTextDisabled: {
-    color: colors.textOnDarkMuted,
-  },
-  pageIndicator: {
-    fontSize: 13,
-    color: colors.textOnDarkMuted,
-    fontWeight: "600",
   },
   kriyaHalf: {
     flex: 35,

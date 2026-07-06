@@ -9,7 +9,9 @@ import {
   UIManager,
   Platform,
   type ImageSourcePropType,
+  useWindowDimensions,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import { useKeepAwake } from "expo-keep-awake";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,16 +26,20 @@ import type { FontSize } from "../storage/keys";
 import DeityIconBox from "../components/DeityIconBox";
 import MantraText from "../components/MantraText";
 import ReaderAudioControl from "../components/ReaderAudioControl";
+import FavoriteStarButton from "../components/FavoriteStarButton";
 import { useContentPacks } from "../context/ContentPackContext";
 import type { AudioUriSource, ContentPackId } from "../contentPacks/types";
+import { isAudioPackPublished } from "../contentPacks/manifest";
 import ReaderOnboarding, {
   SWIPE_NAV_ONBOARDING_STEPS,
 } from "../components/ReaderOnboarding";
 import SectionPicker, { type SectionPickerItem } from "../components/SectionPicker";
 import PageIndicatorButton from "../components/PageIndicatorButton";
 import { showAudioError } from "../utils/audioError";
-import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
+import { readerNavBarStyle, readerTopBarStyle, readerBarStyles } from "../utils/readerLayout";
+import { contentInsetStyle, CONTENT_MAX_WIDTH } from "../utils/contentLayout";
 import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
+import ReaderNavButton from "./ReaderNavButton";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -50,6 +56,9 @@ export type StotramReaderConfig = {
   audioPackId: ContentPackId;
   getPageAudioTrackPaths: (readerPageIndex: number) => readonly string[];
   hasPageAudio: (readerPageIndex: number) => boolean;
+  /** One scrollable page: deity, opening, and all sections — no separate cover. */
+  skipCover?: boolean;
+  audioCredit?: string;
 };
 
 type Props = {
@@ -107,7 +116,7 @@ function PageContent({
     [fontScale]
   );
 
-  if (pageIndex === 0) {
+  if (!config.skipCover && pageIndex === 0) {
     return (
       <View style={[styles.pageContent, styles.firstPageContent]}>
         <DeityIconBox
@@ -123,11 +132,26 @@ function PageContent({
     );
   }
 
-  const page = config.readerPages[pageIndex - 1];
+  const readerPageIndex = config.skipCover ? pageIndex : pageIndex - 1;
+  const page = config.readerPages[readerPageIndex];
+  if (!page) return null;
+
   const showSlokaLabels = page.sections.length > 1;
 
   return (
     <View style={styles.pageContent}>
+      {config.skipCover && pageIndex === 0 ? (
+        <View style={styles.coverBlock}>
+          <DeityIconBox
+            source={config.deityImage}
+            width={120}
+            aspectRatio={1.33}
+            style={styles.deityImage}
+            accessibilityLabel={config.deityLabel}
+          />
+          <Text style={[styles.opening, scaled.opening]}>{config.opening}</Text>
+        </View>
+      ) : null}
       <Text style={[styles.sectionTitleTe, scaled.pageTitle]}>{page.titleTe}</Text>
       {page.titleEn ? (
         <Text style={[styles.sectionTitleEn, scaled.pageTitleEn]}>{page.titleEn}</Text>
@@ -140,6 +164,9 @@ function PageContent({
           fontScale={fontScale}
         />
       ))}
+      {config.audioCredit ? (
+        <Text style={[styles.audioCredit, scaled.hint]}>{config.audioCredit}</Text>
+      ) : null}
     </View>
   );
 }
@@ -151,10 +178,15 @@ export default function StotramReaderView({
   config,
 }: Props) {
   useKeepAwake();
-  const totalPages = config.readerPages.length + 1;
-  const [currentPage, setCurrentPage] = useState(() =>
-    Math.min(Math.max(0, initialPage), totalPages - 1)
-  );
+  const skipCover = config.skipCover ?? false;
+  const totalPages = skipCover
+    ? config.readerPages.length
+    : config.readerPages.length + 1;
+  const [currentPage, setCurrentPage] = useState(() => {
+    const max = Math.max(0, totalPages - 1);
+    const requested = initialPage ?? 0;
+    return Math.min(skipCover && requested > 0 ? 0 : requested, max);
+  });
   const [hintIndex, setHintIndex] = useState(0);
   const [sectionPickerVisible, setSectionPickerVisible] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -172,20 +204,33 @@ export default function StotramReaderView({
   } = useApp();
   const { resolveAudioTracks } = useContentPacks();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  const contentInset = contentInsetStyle(screenWidth);
   const fontScale = FONT_SCALE[fontSize];
   const pageScrollRef = useRef<ScrollView>(null);
 
-  const readerPageIndex = currentPage > 0 ? currentPage - 1 : -1;
+  const readerPageIndex = skipCover
+    ? currentPage
+    : currentPage > 0
+      ? currentPage - 1
+      : -1;
   const audioTrackPaths = config.getPageAudioTrackPaths(readerPageIndex);
-  const hasAudio = config.hasPageAudio(readerPageIndex);
+  const hasAudio =
+    isAudioPackPublished(config.audioPackId) &&
+    config.hasPageAudio(readerPageIndex);
 
   const sectionItems = useMemo((): SectionPickerItem[] => {
-    const items: SectionPickerItem[] = [{ label: "Cover", page: 0 }];
+    const items: SectionPickerItem[] = skipCover
+      ? []
+      : [{ label: "Cover", page: 0 }];
     config.readerPages.forEach((page, index) => {
-      items.push({ label: page.titleTe, page: index + 1 });
+      items.push({
+        label: page.titleTe,
+        page: skipCover ? index : index + 1,
+      });
     });
     return items;
-  }, [config.readerPages]);
+  }, [config.readerPages, skipCover]);
 
   const jumpToPage = useCallback((page: number) => {
     setCurrentPage((p) => {
@@ -200,14 +245,22 @@ export default function StotramReaderView({
   }, [hintsSeen]);
 
   useEffect(() => {
-    if (currentPage > 0) {
-      const page = config.readerPages[currentPage - 1];
+    const readerIndex = skipCover ? currentPage : currentPage - 1;
+    if (readerIndex >= 0) {
+      const page = config.readerPages[readerIndex];
       if (page) {
         setLastSection(screenKey, currentPage, page.titleTe);
         refreshStreak();
       }
     }
-  }, [currentPage, config.readerPages, screenKey, setLastSection, refreshStreak]);
+  }, [
+    currentPage,
+    config.readerPages,
+    screenKey,
+    setLastSection,
+    refreshStreak,
+    skipCover,
+  ]);
 
   useEffect(() => {
     pageScrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -334,6 +387,9 @@ export default function StotramReaderView({
   const pageSwipe = useReaderPageSwipe(goPrev, goNext);
   const canGoPrev = currentPage > 0;
   const canGoNext = currentPage < totalPages - 1;
+  const showPageNav = totalPages > 1;
+  const progressWidth =
+    totalPages <= 1 ? 100 : (currentPage / (totalPages - 1)) * 100;
 
   return (
     <View style={styles.container}>
@@ -341,28 +397,33 @@ export default function StotramReaderView({
         <View
           style={[
             styles.progressBarFill,
-            { width: `${(currentPage / (totalPages - 1)) * 100}%` },
+            { width: `${progressWidth}%` },
           ]}
         />
       </View>
-      <View style={[styles.topBar, readerTopBarStyle(insets)]}>
+      <View style={[readerBarStyles.topBar, readerTopBarStyle(insets), contentInset]}>
         <Pressable
           onPress={() => navigateToContents(navigation)}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+          accessibilityLabel="Back to contents"
+          hitSlop={8}
         >
-          <Text style={styles.backBtnText}>← Contents</Text>
+          <Feather name="chevron-left" size={20} color={colors.goldLight} />
         </Pressable>
-        <ReaderAudioControl
+        <View style={styles.topBarActions}>
+          <FavoriteStarButton screenKey={screenKey} size={20} />
+          <ReaderAudioControl
           packId={config.audioPackId}
           hasAudio={hasAudio}
           isPlaying={isPlaying}
           audioLoading={audioLoading}
           onPlayPause={handlePlayPause}
         />
+        </View>
       </View>
 
-      <View style={styles.contentHalf} {...pageSwipe.panHandlers}>
-        <View style={styles.bookPage}>
+      <View style={[styles.contentHalf, contentInset]} {...pageSwipe.panHandlers}>
+        <View style={[styles.bookPage, styles.bookPageSized]}>
           <ScrollView
             ref={pageScrollRef}
             style={styles.pageScroll}
@@ -374,33 +435,19 @@ export default function StotramReaderView({
         </View>
       </View>
 
-      <View style={[styles.navBar, readerNavBarStyle(insets)]}>
-        <Pressable
-          onPress={goPrev}
-          disabled={!canGoPrev}
-          style={[styles.navBtn, !canGoPrev && styles.navBtnDisabled]}
-        >
-          <Text style={[styles.navBtnText, !canGoPrev && styles.navBtnTextDisabled]}>
-            ← Previous
-          </Text>
-        </Pressable>
-        <PageIndicatorButton
-          label={`${currentPage + 1} / ${totalPages}`}
-          onPress={() => setSectionPickerVisible(true)}
-        />
-        <Pressable
-          onPress={goNext}
-          disabled={!canGoNext}
-          style={[styles.navBtn, !canGoNext && styles.navBtnDisabled]}
-        >
-          <Text style={[styles.navBtnText, !canGoNext && styles.navBtnTextDisabled]}>
-            Next →
-          </Text>
-        </Pressable>
-      </View>
+      {showPageNav ? (
+        <View style={[readerBarStyles.navBar, readerNavBarStyle(insets), contentInset]}>
+          <ReaderNavButton direction="prev" disabled={!canGoPrev} onPress={goPrev} />
+          <PageIndicatorButton
+            label={`${currentPage + 1} / ${totalPages}`}
+            onPress={() => setSectionPickerVisible(true)}
+          />
+          <ReaderNavButton direction="next" disabled={!canGoNext} onPress={goNext} />
+        </View>
+      ) : null}
 
       <ReaderOnboarding
-        visible={preferencesLoaded && !hintsSeen}
+        visible={preferencesLoaded && !hintsSeen && showPageNav}
         steps={SWIPE_NAV_ONBOARDING_STEPS}
         stepIndex={hintIndex}
         onNext={() => setHintIndex((i) => i + 1)}
@@ -432,32 +479,25 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: colors.gold,
   },
-  topBar: {
+  backBtn: {
+    paddingVertical: 4,
+    paddingRight: 4,
+    marginRight: 4,
+  },
+  topBarActions: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingBottom: 10,
-    paddingHorizontal: 16,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceLight,
   },
-  backBtn: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-  },
-  pressed: { opacity: 0.8 },
-  backBtnText: {
-    color: colors.goldLight,
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  pressed: { opacity: 0.7 },
   contentHalf: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  bookPageSized: {
+    maxWidth: CONTENT_MAX_WIDTH,
+    width: "100%",
+    alignSelf: "center",
   },
   bookPage: {
     flex: 1,
@@ -519,39 +559,15 @@ const styles = StyleSheet.create({
     color: colors.accent,
     marginBottom: 6,
   },
-  navBar: {
-    flexDirection: "row",
+  coverBlock: {
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.gold,
+    marginBottom: 16,
+    width: "100%",
   },
-  navBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    minWidth: 88,
-    alignItems: "center",
-  },
-  navBtnDisabled: {
-    backgroundColor: colors.surfaceLight,
-    opacity: 0.6,
-  },
-  navBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.goldLight,
-  },
-  navBtnTextDisabled: {
-    color: colors.textOnDarkMuted,
-  },
-  pageIndicator: {
-    fontSize: 13,
-    color: colors.textOnDarkMuted,
-    fontWeight: "600",
+  audioCredit: {
+    color: colors.textMuted,
+    textAlign: "center",
+    marginTop: 24,
+    fontStyle: "italic",
   },
 });

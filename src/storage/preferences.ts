@@ -108,3 +108,8 @@ export const getSelectedContentsGroup = () =>
   get<string | null>(STORAGE_KEYS.SELECTED_CONTENTS_GROUP, null);
 export const setSelectedContentsGroup = (groupId: string | null) =>
   set(STORAGE_KEYS.SELECTED_CONTENTS_GROUP, groupId);
+
+export const getFavorites = () =>
+  get<CatalogScreen[]>(STORAGE_KEYS.FAVORITES, []);
+export const setFavorites = (keys: CatalogScreen[]) =>
+  set(STORAGE_KEYS.FAVORITES, keys);

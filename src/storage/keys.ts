@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
   REMINDER_MINUTE: "@sandhyavandanam/reminderMinute",
   AUTO_SLIDE_ENABLED: "@sandhyavandanam/autoSlideEnabled",
   SELECTED_CONTENTS_GROUP: "@sandhyavandanam/selectedContentsGroup",
+  FAVORITES: "@sandhyavandanam/favorites",
 } as const;
 
 export type FontSize = "small" | "medium" | "large";

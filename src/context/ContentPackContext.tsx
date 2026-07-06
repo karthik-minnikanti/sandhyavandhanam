@@ -44,30 +44,21 @@ const defaultProgress = (): ContentPackProgress => ({
   error: null,
 });
 
+function emptyProgressMap(): Record<ContentPackId, ContentPackProgress> {
+  return Object.fromEntries(
+    CONTENT_PACK_LIST.map((pack) => [pack.id, defaultProgress()])
+  ) as Record<ContentPackId, ContentPackProgress>;
+}
+
 const ContentPackContext = createContext<ContentPackContextValue | null>(null);
 
 export function ContentPackProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
-  const [progress, setProgress] = useState<Record<ContentPackId, ContentPackProgress>>({
-    "sandhyavandanam-audio": defaultProgress(),
-    "lalitha-audio": defaultProgress(),
-    "dakshinamurthy-audio": defaultProgress(),
-    "lingashtakam-audio": defaultProgress(),
-    "arunachala-audio": defaultProgress(),
-    "chandrasekhara-audio": defaultProgress(),
-    "jyotirlinga-audio": defaultProgress(),
-  });
+  const [progress, setProgress] =
+    useState<Record<ContentPackId, ContentPackProgress>>(emptyProgressMap);
 
   const refreshProgress = useCallback(async () => {
-    const next: Record<ContentPackId, ContentPackProgress> = {
-      "sandhyavandanam-audio": defaultProgress(),
-      "lalitha-audio": defaultProgress(),
-      "dakshinamurthy-audio": defaultProgress(),
-      "lingashtakam-audio": defaultProgress(),
-      "arunachala-audio": defaultProgress(),
-      "chandrasekhara-audio": defaultProgress(),
-      "jyotirlinga-audio": defaultProgress(),
-    };
+    const next = emptyProgressMap();
 
     for (const pack of CONTENT_PACK_LIST) {
       const downloaded =

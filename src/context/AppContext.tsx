@@ -15,6 +15,8 @@ import {
   setReminder as persistReminder,
   getAutoSlideEnabled,
   setAutoSlideEnabled as persistAutoSlideEnabled,
+  getFavorites,
+  setFavorites as persistFavorites,
 } from "../storage/preferences";
 import { scheduleDailyReminder, cancelReminder } from "../notifications/reminder";
 import type { CatalogScreen, LastReading } from "../content/catalog";
@@ -28,6 +30,7 @@ type AppState = {
   hintsSeen: boolean;
   reminder: { enabled: boolean; hour: number; minute: number };
   autoSlideEnabled: boolean;
+  favorites: CatalogScreen[];
 };
 
 type AppContextValue = AppState & {
@@ -41,6 +44,8 @@ type AppContextValue = AppState & {
   setReminder: (enabled: boolean, hour: number, minute: number) => Promise<void>;
   refreshReminder: () => Promise<void>;
   setAutoSlideEnabled: (v: boolean) => Promise<void>;
+  toggleFavorite: (screenKey: CatalogScreen) => Promise<void>;
+  isFavorite: (screenKey: CatalogScreen) => boolean;
 };
 
 const screenshotMode = process.env.EXPO_PUBLIC_SCREENSHOT_MODE === "1";
@@ -54,6 +59,7 @@ const defaultState: AppState = {
   hintsSeen: false,
   reminder: { enabled: false, hour: 6, minute: 0 },
   autoSlideEnabled: false,
+  favorites: [],
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -62,7 +68,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(defaultState);
 
   const load = useCallback(async () => {
-    const [fontSize, lastSection, streak, introSeen, hintsSeen, reminder, autoSlideEnabled] = await Promise.all([
+    const [fontSize, lastSection, streak, introSeen, hintsSeen, reminder, autoSlideEnabled, favorites] = await Promise.all([
       getFontSize(),
       getLastSection(),
       getStreak(),
@@ -70,6 +76,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       getHintsSeen(),
       getReminder(),
       getAutoSlideEnabled(),
+      getFavorites(),
     ]);
     setState({
       preferencesLoaded: true,
@@ -80,6 +87,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       hintsSeen: screenshotMode ? true : hintsSeen,
       reminder,
       autoSlideEnabled,
+      favorites,
     });
   }, []);
 
@@ -145,6 +153,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({ ...s, autoSlideEnabled: v }));
   }, []);
 
+  const toggleFavorite = useCallback(async (screenKey: CatalogScreen) => {
+    setState((s) => {
+      const has = s.favorites.includes(screenKey);
+      const favorites = has
+        ? s.favorites.filter((k) => k !== screenKey)
+        : [...s.favorites, screenKey];
+      persistFavorites(favorites);
+      return { ...s, favorites };
+    });
+  }, []);
+
+  const isFavorite = useCallback(
+    (screenKey: CatalogScreen) => state.favorites.includes(screenKey),
+    [state.favorites]
+  );
+
   const value: AppContextValue = {
     ...state,
     setFontSize,
@@ -157,6 +181,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setReminder,
     refreshReminder,
     setAutoSlideEnabled,
+    toggleFavorite,
+    isFavorite,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

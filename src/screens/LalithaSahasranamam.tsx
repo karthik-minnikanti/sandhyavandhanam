@@ -10,6 +10,7 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import { useKeepAwake } from "expo-keep-awake";
 import { useRoute, RouteProp } from "@react-navigation/native";
@@ -26,6 +27,7 @@ import {
   LALITHA_AUDIO_CREDIT,
   LALITHA_AUDIO_PACK,
 } from "../audio/lalithaSectionAudio";
+import { isAudioPackPublished } from "../contentPacks/manifest";
 import { useContentPacks } from "../context/ContentPackContext";
 import type { AudioUriSource } from "../contentPacks/types";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -35,13 +37,16 @@ import ReaderOnboarding, {
   BASIC_READER_ONBOARDING_STEPS,
 } from "../components/ReaderOnboarding";
 import ReaderAudioControl from "../components/ReaderAudioControl";
+import FavoriteStarButton from "../components/FavoriteStarButton";
 import SectionPicker, { type SectionPickerItem } from "../components/SectionPicker";
 import PageIndicatorButton from "../components/PageIndicatorButton";
 import { showAudioError } from "../utils/audioError";
 import DeityIconBox from "../components/DeityIconBox";
-import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
+import { readerNavBarStyle, readerTopBarStyle, readerBarStyles } from "../utils/readerLayout";
 import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
 import { navigateToContents } from "../utils/catalogNavigation";
+import { useContentLayout } from "../utils/contentLayout";
+import ReaderNavButton from "../components/ReaderNavButton";
 
 import { DEITY_ICONS } from "../content/deityIcons";
 
@@ -125,10 +130,13 @@ export default function LalithaSahasranamam({ navigation }: Props) {
   } = useApp();
   const { resolveAudioTracks } = useContentPacks();
   const insets = useSafeAreaInsets();
+  const { contentInset, bookPageFrame } = useContentLayout();
   const fontScale = FONT_SCALE[fontSize];
   const sectionIndex = currentPage > 0 ? currentPage - 1 : -1;
   const audioTrackPaths = getLalithaSectionAudioTrackPaths(sectionIndex);
-  const hasAudio = hasLalithaSectionAudio(sectionIndex);
+  const hasAudio =
+    isAudioPackPublished(LALITHA_AUDIO_PACK) &&
+    hasLalithaSectionAudio(sectionIndex);
   const resolvedTracksRef = useRef<AudioUriSource[]>([]);
 
   const sectionItems = useMemo((): SectionPickerItem[] => {
@@ -288,24 +296,29 @@ export default function LalithaSahasranamam({ navigation }: Props) {
           ]}
         />
       </View>
-      <View style={[styles.topBar, readerTopBarStyle(insets)]}>
+      <View style={[readerBarStyles.topBar, readerTopBarStyle(insets), contentInset]}>
         <Pressable
           onPress={() => navigateToContents(navigation)}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+          accessibilityLabel="Back to contents"
+          hitSlop={8}
         >
-          <Text style={styles.backBtnText}>← Contents</Text>
+          <Feather name="chevron-left" size={20} color={colors.goldLight} />
         </Pressable>
-        <ReaderAudioControl
-          packId={LALITHA_AUDIO_PACK}
-          hasAudio={hasAudio}
-          isPlaying={isPlaying}
-          audioLoading={audioLoading}
-          onPlayPause={handlePlayPause}
-        />
+        <View style={styles.topBarActions}>
+          <FavoriteStarButton screenKey="LalithaSahasranamam" size={20} />
+          <ReaderAudioControl
+            packId={LALITHA_AUDIO_PACK}
+            hasAudio={hasAudio}
+            isPlaying={isPlaying}
+            audioLoading={audioLoading}
+            onPlayPause={handlePlayPause}
+          />
+        </View>
       </View>
 
-      <View style={styles.contentHalf} {...pageSwipe.panHandlers}>
-        <View style={styles.bookPage}>
+      <View style={[styles.contentHalf, contentInset]} {...pageSwipe.panHandlers}>
+        <View style={[styles.bookPage, bookPageFrame]}>
           <ScrollView
             ref={pageScrollRef}
             style={styles.pageScroll}
@@ -317,29 +330,13 @@ export default function LalithaSahasranamam({ navigation }: Props) {
         </View>
       </View>
 
-      <View style={[styles.navBar, readerNavBarStyle(insets)]}>
-        <Pressable
-          onPress={goPrev}
-          disabled={!canGoPrev}
-          style={[styles.navBtn, !canGoPrev && styles.navBtnDisabled]}
-        >
-          <Text style={[styles.navBtnText, !canGoPrev && styles.navBtnTextDisabled]}>
-            ← Previous
-          </Text>
-        </Pressable>
+      <View style={[readerBarStyles.navBar, readerNavBarStyle(insets), contentInset]}>
+        <ReaderNavButton direction="prev" disabled={!canGoPrev} onPress={goPrev} />
         <PageIndicatorButton
           label={`${currentPage + 1} / ${TOTAL_PAGES}`}
           onPress={() => setSectionPickerVisible(true)}
         />
-        <Pressable
-          onPress={goNext}
-          disabled={!canGoNext}
-          style={[styles.navBtn, !canGoNext && styles.navBtnDisabled]}
-        >
-          <Text style={[styles.navBtnText, !canGoNext && styles.navBtnTextDisabled]}>
-            Next →
-          </Text>
-        </Pressable>
+        <ReaderNavButton direction="next" disabled={!canGoNext} onPress={goNext} />
       </View>
 
       <ReaderOnboarding
@@ -375,26 +372,16 @@ const styles = StyleSheet.create({
     height: "100%",
     backgroundColor: colors.gold,
   },
-  topBar: {
+  backBtn: {
+    paddingVertical: 4,
+    paddingRight: 4,
+    marginRight: 4,
+  },
+  topBarActions: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingBottom: 10,
-    paddingHorizontal: 16,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceLight,
   },
-  backBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-  },
-  pressed: { opacity: 0.8 },
-  backBtnText: {
-    color: colors.goldLight,
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  pressed: { opacity: 0.7 },
   speakerBtn: {
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -482,40 +469,5 @@ const styles = StyleSheet.create({
   },
   mantra: {
     color: colors.text,
-  },
-  navBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.gold,
-  },
-  navBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    minWidth: 88,
-    alignItems: "center",
-  },
-  navBtnDisabled: {
-    backgroundColor: colors.surfaceLight,
-    opacity: 0.6,
-  },
-  navBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.goldLight,
-  },
-  navBtnTextDisabled: {
-    color: colors.textOnDarkMuted,
-  },
-  pageIndicator: {
-    fontSize: 13,
-    color: colors.textOnDarkMuted,
-    fontWeight: "600",
   },
 });

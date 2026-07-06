@@ -127,6 +127,94 @@ export const CONTENTS_GROUPS: DeityGroup[] = [
       },
     ],
   },
+  {
+    id: "hanuman",
+    deityTe: "శ్రీ హనుమాన్",
+    deityEn: "Lord Hanuman",
+    gridLabelTe: "హనుమాన్",
+    iconKey: "hanuman",
+    icon: DEITY_ICONS.hanuman,
+    items: [
+      {
+        key: "HanumanChalisa",
+        titleTe: "హనుమాన్ చాలీసా",
+        titleEn: "Hanuman Chalisa",
+        description: "Tulsidas — 40 chaupais",
+        audioPackId: "hanuman-chalisa-audio",
+        supportsInitialPage: true,
+      },
+    ],
+  },
+  {
+    id: "vinayaka",
+    deityTe: "శ్రీ వినాయక",
+    deityEn: "Lord Vinayaka",
+    gridLabelTe: "వినాయక",
+    iconKey: "vinayaka",
+    icon: DEITY_ICONS.vinayaka,
+    items: [
+      {
+        key: "GaneshaPancharatnam",
+        titleTe: "శ్రీ గణేశ పంచరత్నం",
+        titleEn: "Ganesha Pancharatnam",
+        description: "Adi Shankaracharya — 5 gems on Ganesha",
+        audioPackId: "ganesha-pancharatnam-audio",
+        supportsInitialPage: true,
+      },
+      {
+        key: "GananayakaAshtakam",
+        titleTe: "గణనాయకాష్టకం",
+        titleEn: "Gananayaka Ashtakam",
+        description: "Eight verses on Ganapati",
+        audioPackId: "gananayaka-ashtakam-audio",
+        supportsInitialPage: true,
+      },
+    ],
+  },
+  {
+    id: "venkateswara",
+    deityTe: "శ్రీ వేంకటేశ్వర",
+    deityEn: "Lord Venkateswara",
+    gridLabelTe: "వేంకటేశ్వర",
+    iconKey: "venkateswara",
+    icon: DEITY_ICONS.venkateswara,
+    items: [
+      {
+        key: "VishnuSahasranamam",
+        titleTe: "శ్రీ విష్ణు సహస్ర నామ స్తోత్రం",
+        titleEn: "Vishnu Sahasranamam",
+        description: "1000 names — Mahabharata, Anushasana Parva",
+        audioPackId: "vishnu-sahasranamam-audio",
+        supportsInitialPage: true,
+      },
+      {
+        key: "GovindaNamalu",
+        titleTe: "శ్రీ గోవింద నామాలు",
+        titleEn: "Govinda Namalu",
+        description: "Tirumala — 108 names of Lord Venkateswara",
+        audioPackId: "govinda-namalu-audio",
+        supportsInitialPage: true,
+      },
+    ],
+  },
+  {
+    id: "subramanya",
+    deityTe: "శ్రీ సుబ్రహ్మణ్య",
+    deityEn: "Lord Subramanya",
+    gridLabelTe: "సుబ్రహ్మణ్య",
+    iconKey: "subramanya",
+    icon: DEITY_ICONS.subramanya,
+    items: [
+      {
+        key: "SubrahmanyaAshtakam",
+        titleTe: "శ్రీ సుబ్రహ్మణ్య అష్టకం",
+        titleEn: "Subrahmanya Ashtakam",
+        description: "Karavalamba stotram — Adi Shankaracharya",
+        audioPackId: "subrahmanya-ashtakam-audio",
+        supportsInitialPage: true,
+      },
+    ],
+  },
 ];
 
 export type LastReading = {
@@ -164,4 +252,13 @@ export function findCatalogItemByTitle(
     }
   }
   return null;
+}
+
+/** Resolve favorite screen keys to catalog items, preserving order. */
+export function getCatalogItemsForScreens(
+  screenKeys: CatalogScreen[]
+): CatalogItem[] {
+  return screenKeys
+    .map((key) => findCatalogItem(key))
+    .filter((item): item is CatalogItem => item != null);
 }

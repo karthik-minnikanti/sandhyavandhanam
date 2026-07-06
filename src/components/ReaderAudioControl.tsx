@@ -45,19 +45,7 @@ export default function ReaderAudioControl({
   }, [downloadPack, packId]);
 
   if (!hasAudio) {
-    return (
-      <View style={[styles.btn, styles.btnDisabled, compact && styles.btnCompact]}>
-        <Text
-          style={[
-            styles.speakerIcon,
-            styles.iconDisabled,
-            compact && styles.iconCompact,
-          ]}
-        >
-          🔊
-        </Text>
-      </View>
-    );
+    return null;
   }
 
   return (
@@ -151,8 +139,5 @@ const styles = StyleSheet.create({
   },
   iconCompact: {
     fontSize: 18,
-  },
-  iconDisabled: {
-    opacity: 0.6,
   },
 });

@@ -9,6 +9,7 @@ import {
   UIManager,
   Platform,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../types/navigation";
@@ -21,9 +22,12 @@ import { useApp } from "../context/AppContext";
 import ReaderOnboarding, {
   SWIPE_NAV_ONBOARDING_STEPS,
 } from "../components/ReaderOnboarding";
-import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
+import { readerNavBarStyle, readerTopBarStyle, readerBarStyles } from "../utils/readerLayout";
 import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
 import { navigateToContents } from "../utils/catalogNavigation";
+import { useContentLayout } from "../utils/contentLayout";
+import ReaderNavButton from "../components/ReaderNavButton";
+import FavoriteStarButton from "../components/FavoriteStarButton";
 import DeityIconBox from "../components/DeityIconBox";
 import { DEITY_ICONS } from "../content/deityIcons";
 
@@ -72,6 +76,7 @@ export default function YagnopaveetamVidhi({ navigation }: Props) {
   const [hintIndex, setHintIndex] = useState(0);
   const { preferencesLoaded, hintsSeen, markHintsSeen } = useApp();
   const insets = useSafeAreaInsets();
+  const { contentInset, bookPageFrame } = useContentLayout();
 
   useEffect(() => {
     if (!hintsSeen) setHintIndex(0);
@@ -101,20 +106,23 @@ export default function YagnopaveetamVidhi({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.topBar, readerTopBarStyle(insets)]}>
+      <View style={[readerBarStyles.topBar, readerTopBarStyle(insets), contentInset]}>
         <Pressable
           onPress={() => navigateToContents(navigation)}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+          accessibilityLabel="Back to contents"
+          hitSlop={8}
         >
-          <Text style={styles.backBtnText}>← Contents</Text>
+          <Feather name="chevron-left" size={20} color={colors.goldLight} />
         </Pressable>
+        <FavoriteStarButton screenKey="YagnopaveetamVidhi" size={20} />
       </View>
 
       <View
-        style={[styles.contentHalf, !kriyaAvailable && styles.contentHalfFull]}
+        style={[styles.contentHalf, contentInset, !kriyaAvailable && styles.contentHalfFull]}
         {...pageSwipe.panHandlers}
       >
-        <View style={styles.bookPage}>
+        <View style={[styles.bookPage, bookPageFrame]}>
           <ScrollView
             style={styles.pageScroll}
             contentContainerStyle={styles.pageScrollContent}
@@ -134,32 +142,12 @@ export default function YagnopaveetamVidhi({ navigation }: Props) {
         </View>
       ) : null}
 
-      <View style={[styles.navBar, readerNavBarStyle(insets)]}>
-        <Pressable
-          onPress={goPrev}
-          disabled={!canGoPrev}
-          style={[styles.navBtn, !canGoPrev && styles.navBtnDisabled]}
-        >
-          <Text
-            style={[styles.navBtnText, !canGoPrev && styles.navBtnTextDisabled]}
-          >
-            ← Previous
-          </Text>
-        </Pressable>
+      <View style={[readerBarStyles.navBar, readerNavBarStyle(insets), contentInset]}>
+        <ReaderNavButton direction="prev" disabled={!canGoPrev} onPress={goPrev} />
         <Text style={styles.pageIndicator}>
           {currentPage + 1} / {TOTAL_PAGES}
         </Text>
-        <Pressable
-          onPress={goNext}
-          disabled={!canGoNext}
-          style={[styles.navBtn, !canGoNext && styles.navBtnDisabled]}
-        >
-          <Text
-            style={[styles.navBtnText, !canGoNext && styles.navBtnTextDisabled]}
-          >
-            Next →
-          </Text>
-        </Pressable>
+        <ReaderNavButton direction="next" disabled={!canGoNext} onPress={goNext} />
       </View>
 
       <ReaderOnboarding
@@ -178,24 +166,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  topBar: {
-    paddingBottom: 10,
-    paddingHorizontal: 16,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceLight,
-  },
   backBtn: {
-    alignSelf: "flex-start",
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    paddingVertical: 4,
+    paddingRight: 4,
+    marginRight: 4,
   },
-  pressed: { opacity: 0.8 },
-  backBtnText: {
-    color: colors.goldLight,
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  pressed: { opacity: 0.7 },
   contentHalf: {
     flex: 65,
     paddingHorizontal: 16,
@@ -283,36 +259,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textOnDarkMuted,
     textAlign: "center",
-  },
-  navBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.gold,
-  },
-  navBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    minWidth: 88,
-    alignItems: "center",
-  },
-  navBtnDisabled: {
-    backgroundColor: colors.surfaceLight,
-    opacity: 0.6,
-  },
-  navBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.goldLight,
-  },
-  navBtnTextDisabled: {
-    color: colors.textOnDarkMuted,
   },
   pageIndicator: {
     fontSize: 13,

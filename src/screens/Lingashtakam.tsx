@@ -11,6 +11,7 @@ import { DEITY_ICONS } from "../content/deityIcons";
 import {
   getLingashtakamPageAudioTrackPaths,
   hasLingashtakamPageAudio,
+  LINGASHTAKAM_AUDIO_CREDIT,
   LINGASHTAKAM_AUDIO_PACK,
 } from "../audio/lingashtakamSectionAudio";
 
@@ -32,6 +33,8 @@ export default function Lingashtakam({ navigation }: Props) {
       audioPackId: LINGASHTAKAM_AUDIO_PACK,
       getPageAudioTrackPaths: getLingashtakamPageAudioTrackPaths,
       hasPageAudio: hasLingashtakamPageAudio,
+      skipCover: true,
+      audioCredit: LINGASHTAKAM_AUDIO_CREDIT,
     }),
     []
   );
