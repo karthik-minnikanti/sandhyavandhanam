@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,9 @@ import { colors } from "../theme/colors";
 import { useApp } from "../context/AppContext";
 import DeityIconBox from "../components/DeityIconBox";
 import { DEITY_ICONS } from "../content/deityIcons";
+import ContinueReadingLink from "../components/ContinueReadingLink";
+import { findCatalogItem } from "../content/catalog";
+import { openReaderFromCover } from "../utils/catalogNavigation";
 
 const gayatriMataImage = DEITY_ICONS.gayatri;
 const AUTO_OPEN_DELAY_MS = 1500;
@@ -23,59 +26,103 @@ type Props = {
 export default function BookCover({ navigation }: Props) {
   const { height } = useWindowDimensions();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { streak } = useApp();
+  const {
+    streak,
+    lastSection,
+    introSeen,
+    preferencesLoaded,
+    markIntroSeen,
+  } = useApp();
+
+  const continueReading = useMemo(() => {
+    if (!lastSection) return null;
+    const item = findCatalogItem(lastSection.screenKey);
+    if (!item) return null;
+    return { item, page: lastSection.page };
+  }, [lastSection]);
 
   useEffect(() => {
     if (process.env.EXPO_PUBLIC_SCREENSHOT_MODE === "1") return;
+    if (!preferencesLoaded) return;
+    if (introSeen) return;
+    if (continueReading) return;
+
     timerRef.current = setTimeout(() => {
+      markIntroSeen();
       navigation.navigate("TableOfContents");
     }, AUTO_OPEN_DELAY_MS);
+
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [navigation]);
+  }, [
+    navigation,
+    introSeen,
+    continueReading,
+    preferencesLoaded,
+    markIntroSeen,
+  ]);
 
-  const openBook = () => {
+  const clearTimer = () => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+  };
+
+  const openBook = () => {
+    clearTimer();
+    markIntroSeen();
     navigation.navigate("TableOfContents");
+  };
+
+  const openContinue = () => {
+    if (!continueReading) return;
+    clearTimer();
+    markIntroSeen();
+    openReaderFromCover(navigation, continueReading.item, continueReading.page);
   };
 
   return (
     <View style={[styles.cover, { minHeight: height }]}>
       <Pressable style={StyleSheet.absoluteFill} onPress={openBook}>
-        {/* Book spine */}
         <View style={styles.spine}>
           <View style={styles.spineStrip} />
         </View>
 
-        {/* Main cover content */}
         <View style={styles.coverInner}>
-        <View style={styles.frame}>
-          <Text style={styles.om}>ॐ</Text>
-          <DeityIconBox
-            source={gayatriMataImage}
-            width={140}
-            aspectRatio={1.25}
-            style={styles.gayatriImage}
-            accessibilityLabel="Gayatri Mata"
-          />
-          <View style={styles.divider} />
-          <Text style={styles.title}>వేదగాయత్రి</Text>
-          <Text style={styles.titleEn}>VedGayatri</Text>
-          <View style={styles.subtitleBlock}>
-            <Text style={styles.subtitle}>కృష్ణ యజుర్వేద సంధ్యావందనం</Text>
-            <Text style={styles.subtitle}>యజ్ఞోపవీత ధారణ విధిః</Text>
-            <Text style={styles.subtitle}>శ్రీ లలితా సహస్ర నామ స్తోత్రం</Text>
-            <Text style={styles.subtitle}>శ్రీ శివ స్తోత్రాలు</Text>
+          <View style={styles.frame}>
+            <Text style={styles.om}>ॐ</Text>
+            <DeityIconBox
+              source={gayatriMataImage}
+              width={140}
+              aspectRatio={1.25}
+              style={styles.gayatriImage}
+              accessibilityLabel="Gayatri Mata"
+            />
+            <View style={styles.divider} />
+            <Text style={styles.title}>వేదగాయత్రి</Text>
+            <Text style={styles.titleEn}>VedGayatri</Text>
+            <View style={styles.subtitleBlock}>
+              <Text style={styles.subtitle}>కృష్ణ యజుర్వేద సంధ్యావందనం</Text>
+              <Text style={styles.subtitle}>యజ్ఞోపవీత ధారణ విధిః</Text>
+              <Text style={styles.subtitle}>శ్రీ లలితా సహస్ర నామ స్తోత్రం</Text>
+              <Text style={styles.subtitle}>శ్రీ శివ స్తోత్రాలు</Text>
+            </View>
+            {streak > 0 ? (
+              <Text style={styles.streakText}>ॐ {streak} day streak</Text>
+            ) : null}
+            {continueReading ? (
+              <ContinueReadingLink
+                title={continueReading.item.titleTe}
+                page={continueReading.page}
+                onPress={openContinue}
+              />
+            ) : (
+              <Text style={styles.tapHint}>Tap to open</Text>
+            )}
           </View>
-          {streak > 0 ? (
-            <Text style={styles.streakText}>ॐ {streak} day streak</Text>
-          ) : null}
         </View>
-      </View>
       </Pressable>
     </View>
   );
@@ -179,5 +226,12 @@ const styles = StyleSheet.create({
     color: colors.gold,
     opacity: 0.9,
     letterSpacing: 0.5,
+    marginTop: 4,
+  },
+  tapHint: {
+    fontSize: 12,
+    color: colors.textOnDarkMuted,
+    marginTop: 10,
+    opacity: 0.8,
   },
 });

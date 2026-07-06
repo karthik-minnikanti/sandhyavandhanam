@@ -1,5 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STORAGE_KEYS, type FontSize } from "./keys";
+import type { CatalogScreen, LastReading } from "../content/catalog";
+import {
+  findCatalogItemByTitle,
+  isCatalogScreen,
+} from "../content/catalog";
 
 const get = async <T>(key: string, fallback: T): Promise<T> => {
   try {
@@ -20,15 +25,38 @@ const set = async (key: string, value: unknown): Promise<void> => {
 export const getFontSize = () => get<FontSize>(STORAGE_KEYS.FONT_SIZE, "medium");
 export const setFontSize = (v: FontSize) => set(STORAGE_KEYS.FONT_SIZE, v);
 
-export const getLastSection = async (): Promise<{ page: number; title: string } | null> => {
+export const getLastSection = async (): Promise<LastReading | null> => {
   const page = await get<number>(STORAGE_KEYS.LAST_SECTION_PAGE, -1);
   const title = await get<string>(STORAGE_KEYS.LAST_SECTION_TITLE, "");
+  const screenKeyRaw = await get<string>(STORAGE_KEYS.LAST_SECTION_SCREEN, "");
   if (page < 0 || !title) return null;
-  return { page, title };
+
+  if (isCatalogScreen(screenKeyRaw)) {
+    return { screenKey: screenKeyRaw, page, title };
+  }
+
+  const match = findCatalogItemByTitle(title);
+  if (match) {
+    const migrated: LastReading = {
+      screenKey: match.item.key,
+      page,
+      title,
+    };
+    await setLastSection(migrated.screenKey, page, title);
+    return migrated;
+  }
+
+  return null;
 };
-export const setLastSection = async (page: number, title: string) => {
+
+export const setLastSection = async (
+  screenKey: CatalogScreen,
+  page: number,
+  title: string
+) => {
   await set(STORAGE_KEYS.LAST_SECTION_PAGE, page);
   await set(STORAGE_KEYS.LAST_SECTION_TITLE, title);
+  await set(STORAGE_KEYS.LAST_SECTION_SCREEN, screenKey);
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -75,3 +103,8 @@ export const setReminder = async (enabled: boolean, hour: number, minute: number
 
 export const getAutoSlideEnabled = () => get<boolean>(STORAGE_KEYS.AUTO_SLIDE_ENABLED, false);
 export const setAutoSlideEnabled = (v: boolean) => set(STORAGE_KEYS.AUTO_SLIDE_ENABLED, v);
+
+export const getSelectedContentsGroup = () =>
+  get<string | null>(STORAGE_KEYS.SELECTED_CONTENTS_GROUP, null);
+export const setSelectedContentsGroup = (groupId: string | null) =>
+  set(STORAGE_KEYS.SELECTED_CONTENTS_GROUP, groupId);

@@ -17,11 +17,12 @@ import {
   setAutoSlideEnabled as persistAutoSlideEnabled,
 } from "../storage/preferences";
 import { scheduleDailyReminder, cancelReminder } from "../notifications/reminder";
+import type { CatalogScreen, LastReading } from "../content/catalog";
 
 type AppState = {
   preferencesLoaded: boolean;
   fontSize: FontSize;
-  lastSection: { page: number; title: string } | null;
+  lastSection: LastReading | null;
   streak: number;
   introSeen: boolean;
   hintsSeen: boolean;
@@ -31,7 +32,7 @@ type AppState = {
 
 type AppContextValue = AppState & {
   setFontSize: (v: FontSize) => Promise<void>;
-  setLastSection: (page: number, title: string) => Promise<void>;
+  setLastSection: (screenKey: CatalogScreen, page: number, title: string) => Promise<void>;
   refreshLastSection: () => Promise<void>;
   refreshStreak: () => Promise<void>;
   markIntroSeen: () => Promise<void>;
@@ -91,10 +92,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({ ...s, fontSize: v }));
   }, []);
 
-  const setLastSection = useCallback(async (page: number, title: string) => {
-    await persistLastSection(page, title);
-    setState((s) => ({ ...s, lastSection: { page, title } }));
-  }, []);
+  const setLastSection = useCallback(
+    async (screenKey: CatalogScreen, page: number, title: string) => {
+      await persistLastSection(screenKey, page, title);
+      setState((s) => ({ ...s, lastSection: { screenKey, page, title } }));
+    },
+    []
+  );
 
   const refreshLastSection = useCallback(async () => {
     const last = await getLastSection();

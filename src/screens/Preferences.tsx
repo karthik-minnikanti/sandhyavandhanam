@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../types/navigation";
@@ -14,6 +15,9 @@ import { colors } from "../theme/colors";
 import { useApp } from "../context/AppContext";
 import { useContentPacks } from "../context/ContentPackContext";
 import { CONTENT_PACK_LIST } from "../contentPacks/manifest";
+import {
+  requestReminderPermission,
+} from "../notifications/reminder";
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, "Preferences">;
@@ -30,6 +34,58 @@ export default function Preferences({ navigation }: Props) {
     showHintsAgain,
   } = useApp();
   const { progress, downloadPack, deletePack } = useContentPacks();
+  const [reminderHour, setReminderHour] = useState(reminder.hour);
+  const [reminderMinute, setReminderMinute] = useState(reminder.minute);
+
+  React.useEffect(() => {
+    setReminderHour(reminder.hour);
+    setReminderMinute(reminder.minute);
+  }, [reminder.hour, reminder.minute]);
+
+  const formatTime = (hour: number, minute: number) =>
+    `${hour}:${String(minute).padStart(2, "0")}`;
+
+  const adjustHour = useCallback((delta: number) => {
+    setReminderHour((h) => (h + delta + 24) % 24);
+  }, []);
+
+  const adjustMinute = useCallback((delta: number) => {
+    setReminderMinute((m) => {
+      const steps = [0, 15, 30, 45];
+      const idx = steps.indexOf(m);
+      const next = idx < 0 ? 0 : (idx + delta + steps.length) % steps.length;
+      return steps[next];
+    });
+  }, []);
+
+  const handleReminderToggle = useCallback(async () => {
+    if (reminder.enabled) {
+      await setReminder(false, reminderHour, reminderMinute);
+      return;
+    }
+    const granted = await requestReminderPermission();
+    if (!granted) {
+      Alert.alert(
+        "Notifications",
+        "Enable notifications in Settings to receive daily reminders."
+      );
+      return;
+    }
+    await setReminder(true, reminderHour, reminderMinute);
+  }, [reminder.enabled, reminderHour, reminderMinute, setReminder]);
+
+  const applyReminderTime = useCallback(async () => {
+    if (!reminder.enabled) return;
+    const granted = await requestReminderPermission();
+    if (!granted) {
+      Alert.alert(
+        "Notifications",
+        "Enable notifications in Settings to receive daily reminders."
+      );
+      return;
+    }
+    await setReminder(true, reminderHour, reminderMinute);
+  }, [reminder.enabled, reminderHour, reminderMinute, setReminder]);
 
   const handleDownload = useCallback(
     async (packId: (typeof CONTENT_PACK_LIST)[number]["id"]) => {
@@ -94,18 +150,60 @@ export default function Preferences({ navigation }: Props) {
             styles.optionBtn,
             reminder.enabled && styles.optionBtnActive,
           ]}
-          onPress={() =>
-            setReminder(!reminder.enabled, reminder.hour, reminder.minute)
-          }
+          onPress={handleReminderToggle}
         >
           <Text style={styles.optionBtnText}>
             {reminder.enabled
-              ? `On – ${reminder.hour}:${String(reminder.minute).padStart(2, "0")} (సంధ్యావందనం)`
+              ? `On – ${formatTime(reminder.hour, reminder.minute)}`
               : "Off – Tap to enable"}
           </Text>
         </Pressable>
+        <View style={styles.timeRow}>
+          <Text style={styles.timeLabel}>Time</Text>
+          <View style={styles.timeStepper}>
+            <Pressable
+              style={styles.timeBtn}
+              onPress={() => adjustHour(-1)}
+              accessibilityLabel="Earlier hour"
+            >
+              <Text style={styles.timeBtnText}>−</Text>
+            </Pressable>
+            <Text style={styles.timeValue}>{formatTime(reminderHour, reminderMinute)}</Text>
+            <Pressable
+              style={styles.timeBtn}
+              onPress={() => adjustHour(1)}
+              accessibilityLabel="Later hour"
+            >
+              <Text style={styles.timeBtnText}>+</Text>
+            </Pressable>
+          </View>
+          <View style={styles.timeStepper}>
+            <Pressable
+              style={styles.timeBtn}
+              onPress={() => adjustMinute(-1)}
+              accessibilityLabel="Earlier 15 minutes"
+            >
+              <Text style={styles.timeBtnText}>−15</Text>
+            </Pressable>
+            <Pressable
+              style={styles.timeBtn}
+              onPress={() => adjustMinute(1)}
+              accessibilityLabel="Later 15 minutes"
+            >
+              <Text style={styles.timeBtnText}>+15</Text>
+            </Pressable>
+          </View>
+          {reminder.enabled ? (
+            <Pressable
+              style={styles.applyTimeBtn}
+              onPress={applyReminderTime}
+            >
+              <Text style={styles.applyTimeText}>Update time</Text>
+            </Pressable>
+          ) : null}
+        </View>
 
-        <Text style={styles.sectionLabel}>Auto slide</Text>
+        <Text style={styles.sectionLabel}>Auto slide (Sandhyavandanam)</Text>
         <Pressable
           style={[
             styles.optionBtn,
@@ -115,8 +213,8 @@ export default function Preferences({ navigation }: Props) {
         >
           <Text style={styles.optionBtnText}>
             {autoSlideEnabled
-              ? "On – Pages advance by content length"
-              : "Off – Tap to enable"}
+              ? "On – Sandhyavandanam pages advance by content length"
+              : "Off – Tap to enable for Sandhyavandanam only"}
           </Text>
         </Pressable>
 
@@ -279,6 +377,48 @@ const styles = StyleSheet.create({
   optionBtnText: {
     fontSize: 14,
     color: colors.textOnDark,
+  },
+  timeRow: {
+    marginTop: 8,
+    marginBottom: 4,
+    gap: 8,
+  },
+  timeLabel: {
+    fontSize: 12,
+    color: colors.textOnDarkMuted,
+  },
+  timeStepper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  timeBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+  },
+  timeBtnText: {
+    fontSize: 13,
+    color: colors.goldLight,
+    fontWeight: "600",
+  },
+  timeValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.textOnDark,
+    minWidth: 64,
+    textAlign: "center",
+  },
+  applyTimeBtn: {
+    alignSelf: "flex-start",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  applyTimeText: {
+    fontSize: 13,
+    color: colors.goldLight,
+    fontWeight: "600",
   },
   showHintsAgainText: {
     fontSize: 13,

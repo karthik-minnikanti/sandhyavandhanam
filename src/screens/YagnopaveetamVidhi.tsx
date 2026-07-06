@@ -23,6 +23,7 @@ import ReaderOnboarding, {
 } from "../components/ReaderOnboarding";
 import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
 import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
+import { navigateToContents } from "../utils/catalogNavigation";
 import DeityIconBox from "../components/DeityIconBox";
 import { DEITY_ICONS } from "../content/deityIcons";
 
@@ -102,7 +103,7 @@ export default function YagnopaveetamVidhi({ navigation }: Props) {
     <View style={styles.container}>
       <View style={[styles.topBar, readerTopBarStyle(insets)]}>
         <Pressable
-          onPress={() => navigation.goBack()}
+          onPress={() => navigateToContents(navigation)}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
         >
           <Text style={styles.backBtnText}>← Contents</Text>

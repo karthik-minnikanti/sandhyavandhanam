@@ -40,6 +40,7 @@ export default function ArunachalaAshtakam({ navigation }: Props) {
     <StotramReaderView
       navigation={navigation}
       initialPage={initialPage}
+      screenKey="ArunachalaAshtakam"
       config={config}
     />
   );

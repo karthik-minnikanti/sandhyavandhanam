@@ -40,6 +40,7 @@ export default function Lingashtakam({ navigation }: Props) {
     <StotramReaderView
       navigation={navigation}
       initialPage={initialPage}
+      screenKey="Lingashtakam"
       config={config}
     />
   );

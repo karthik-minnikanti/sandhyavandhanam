@@ -26,6 +26,9 @@ import type { FontSize } from "../storage/keys";
 import DeityIconBox from "../components/DeityIconBox";
 import MantraText from "../components/MantraText";
 import ReaderAudioControl from "../components/ReaderAudioControl";
+import SectionPicker, { type SectionPickerItem } from "../components/SectionPicker";
+import PageIndicatorButton from "../components/PageIndicatorButton";
+import { showAudioError } from "../utils/audioError";
 import { useContentPacks } from "../context/ContentPackContext";
 import type { AudioUriSource } from "../contentPacks/types";
 import {
@@ -39,6 +42,7 @@ import ReaderOnboarding, {
 } from "../components/ReaderOnboarding";
 import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
 import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
+import { navigateToContents } from "../utils/catalogNavigation";
 
 const shivaImage = DEITY_ICONS.shiva;
 const READER_PAGES = getDakshinamurthyReaderPages();
@@ -147,6 +151,7 @@ export default function DakshinamurthyStotram({ navigation }: Props) {
     Math.min(Math.max(0, initialPage), TOTAL_PAGES - 1)
   );
   const [hintIndex, setHintIndex] = useState(0);
+  const [sectionPickerVisible, setSectionPickerVisible] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -169,6 +174,22 @@ export default function DakshinamurthyStotram({ navigation }: Props) {
   const audioTrackPaths = getDakshinamurthyPageAudioTrackPaths(readerPageIndex);
   const hasAudio = hasDakshinamurthyPageAudio(readerPageIndex);
 
+  const sectionItems = useMemo((): SectionPickerItem[] => {
+    const items: SectionPickerItem[] = [{ label: "Cover", page: 0 }];
+    READER_PAGES.forEach((page, index) => {
+      items.push({ label: page.titleTe, page: index + 1 });
+    });
+    return items;
+  }, []);
+
+  const jumpToPage = useCallback((page: number) => {
+    setCurrentPage((p) => {
+      if (page === p) return p;
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      return page;
+    });
+  }, []);
+
   useEffect(() => {
     if (!hintsSeen) setHintIndex(0);
   }, [hintsSeen]);
@@ -177,7 +198,7 @@ export default function DakshinamurthyStotram({ navigation }: Props) {
     if (currentPage > 0) {
       const page = READER_PAGES[currentPage - 1];
       if (page) {
-        setLastSection(currentPage, page.titleTe);
+        setLastSection("DakshinamurthyStotram", currentPage, page.titleTe);
         refreshStreak();
       }
     }
@@ -243,8 +264,9 @@ export default function DakshinamurthyStotram({ navigation }: Props) {
             }
           }
         });
-      } catch (_) {
+      } catch {
         setIsPlaying(false);
+        showAudioError();
       } finally {
         setAudioLoading(false);
       }
@@ -268,9 +290,10 @@ export default function DakshinamurthyStotram({ navigation }: Props) {
         audioTrackPaths
       );
       await playTrack(0);
-    } catch (_) {
+    } catch {
       setIsPlaying(false);
       setAudioLoading(false);
+      showAudioError();
     }
   }, [
     hasAudio,
@@ -318,7 +341,7 @@ export default function DakshinamurthyStotram({ navigation }: Props) {
       </View>
       <View style={[styles.topBar, readerTopBarStyle(insets)]}>
         <Pressable
-          onPress={() => navigation.goBack()}
+          onPress={() => navigateToContents(navigation)}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
         >
           <Text style={styles.backBtnText}>← Contents</Text>
@@ -355,9 +378,10 @@ export default function DakshinamurthyStotram({ navigation }: Props) {
             ← Previous
           </Text>
         </Pressable>
-        <Text style={styles.pageIndicator}>
-          {currentPage + 1} / {TOTAL_PAGES}
-        </Text>
+        <PageIndicatorButton
+          label={`${currentPage + 1} / ${TOTAL_PAGES}`}
+          onPress={() => setSectionPickerVisible(true)}
+        />
         <Pressable
           onPress={goNext}
           disabled={!canGoNext}
@@ -375,6 +399,14 @@ export default function DakshinamurthyStotram({ navigation }: Props) {
         stepIndex={hintIndex}
         onNext={() => setHintIndex((i) => i + 1)}
         onDone={markHintsSeen}
+      />
+
+      <SectionPicker
+        visible={sectionPickerVisible}
+        sections={sectionItems}
+        currentPage={currentPage}
+        onSelect={jumpToPage}
+        onClose={() => setSectionPickerVisible(false)}
       />
     </View>
   );

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -13,14 +13,20 @@ import { Feather } from "@expo/vector-icons";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../types/navigation";
 import { colors } from "../theme/colors";
+import { useApp } from "../context/AppContext";
 import { useContentPacks } from "../context/ContentPackContext";
 import type { ContentPackId } from "../contentPacks/types";
 import {
   CONTENTS_GROUPS,
+  findCatalogItem,
+  findGroupForScreen,
   type CatalogItem,
   type DeityGroup,
 } from "../content/catalog";
 import DeityIconBox from "../components/DeityIconBox";
+import ContinueReadingLink from "../components/ContinueReadingLink";
+import { navigateToCatalogItem } from "../utils/catalogNavigation";
+import { getSelectedContentsGroup, setSelectedContentsGroup } from "../storage/preferences";
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, "TableOfContents">;
@@ -28,17 +34,6 @@ type Props = {
 
 const GRID_GAP = 12;
 const GRID_COLUMNS = 3;
-
-function openCatalogItem(
-  navigation: Props["navigation"],
-  item: CatalogItem
-) {
-  if (item.supportsInitialPage) {
-    navigation.navigate(item.key, undefined);
-    return;
-  }
-  navigation.navigate(item.key);
-}
 
 function DeityGridTile({
   group,
@@ -153,8 +148,43 @@ function CatalogListItem({
 
 export default function TableOfContents({ navigation }: Props) {
   const { width: screenWidth } = useWindowDimensions();
+  const { lastSection } = useApp();
   const { progress, downloadPack } = useContentPacks();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [groupLoaded, setGroupLoaded] = useState(false);
+
+  const continueReading = useMemo(() => {
+    if (!lastSection) return null;
+    const item = findCatalogItem(lastSection.screenKey);
+    if (!item) return null;
+    return { item, page: lastSection.page };
+  }, [lastSection]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const saved = await getSelectedContentsGroup();
+      if (cancelled) return;
+      if (saved) {
+        setSelectedGroupId(saved);
+      } else if (lastSection) {
+        const group = findGroupForScreen(lastSection.screenKey);
+        if (group) setSelectedGroupId(group.id);
+      }
+      setGroupLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lastSection]);
+
+  const handleTilePress = useCallback((group: DeityGroup) => {
+    setSelectedGroupId((current) => {
+      const next = current === group.id ? null : group.id;
+      setSelectedContentsGroup(next);
+      return next;
+    });
+  }, []);
 
   const tileWidth =
     (screenWidth - 48 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
@@ -162,14 +192,21 @@ export default function TableOfContents({ navigation }: Props) {
 
   const handleOpenItem = useCallback(
     (item: CatalogItem) => {
-      openCatalogItem(navigation, item);
+      const resumePage =
+        lastSection?.screenKey === item.key ? lastSection.page : undefined;
+      navigateToCatalogItem(navigation.navigate, item, resumePage);
     },
-    [navigation]
+    [navigation, lastSection]
   );
 
-  const handleTilePress = useCallback((group: DeityGroup) => {
-    setSelectedGroupId((current) => (current === group.id ? null : group.id));
-  }, []);
+  const handleContinue = useCallback(() => {
+    if (!continueReading) return;
+    navigateToCatalogItem(
+      navigation.navigate,
+      continueReading.item,
+      continueReading.page
+    );
+  }, [navigation, continueReading]);
 
   const handleDownloadAudio = useCallback(
     async (packId: ContentPackId) => {
@@ -212,6 +249,15 @@ export default function TableOfContents({ navigation }: Props) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {continueReading ? (
+          <ContinueReadingLink
+            title={continueReading.item.titleTe}
+            page={continueReading.page}
+            onPress={handleContinue}
+            align="left"
+          />
+        ) : null}
+
         <View style={styles.grid}>
           {CONTENTS_GROUPS.map((group) => (
             <DeityGridTile
@@ -241,9 +287,9 @@ export default function TableOfContents({ navigation }: Props) {
               />
             ))}
           </View>
-        ) : (
+        ) : groupLoaded ? (
           <Text style={styles.gridHint}>Tap a deity to see available texts</Text>
-        )}
+        ) : null}
       </ScrollView>
     </View>
   );

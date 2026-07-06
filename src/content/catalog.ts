@@ -128,3 +128,40 @@ export const CONTENTS_GROUPS: DeityGroup[] = [
     ],
   },
 ];
+
+export type LastReading = {
+  screenKey: CatalogScreen;
+  page: number;
+  title: string;
+};
+
+const CATALOG_SCREENS = new Set<string>(
+  CONTENTS_GROUPS.flatMap((g) => g.items.map((i) => i.key))
+);
+
+export function isCatalogScreen(key: string): key is CatalogScreen {
+  return CATALOG_SCREENS.has(key);
+}
+
+export function findCatalogItem(screenKey: CatalogScreen): CatalogItem | undefined {
+  for (const group of CONTENTS_GROUPS) {
+    const item = group.items.find((i) => i.key === screenKey);
+    if (item) return item;
+  }
+  return undefined;
+}
+
+export function findGroupForScreen(screenKey: CatalogScreen): DeityGroup | undefined {
+  return CONTENTS_GROUPS.find((g) => g.items.some((i) => i.key === screenKey));
+}
+
+export function findCatalogItemByTitle(
+  title: string
+): { item: CatalogItem; group: DeityGroup } | null {
+  for (const group of CONTENTS_GROUPS) {
+    for (const item of group.items) {
+      if (item.titleTe === title) return { item, group };
+    }
+  }
+  return null;
+}

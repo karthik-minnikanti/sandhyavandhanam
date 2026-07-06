@@ -44,6 +44,7 @@ export default function DvadasaJyotirlingaStotram({ navigation }: Props) {
     <StotramReaderView
       navigation={navigation}
       initialPage={initialPage}
+      screenKey="DvadasaJyotirlingaStotram"
       config={config}
     />
   );

@@ -15,6 +15,8 @@ import { useKeepAwake } from "expo-keep-awake";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../types/navigation";
+import type { CatalogScreen } from "../content/catalog";
+import { navigateToContents } from "../utils/catalogNavigation";
 import { colors } from "../theme/colors";
 import type { StotramReaderPage, StotramSection } from "../content/stotramTypes";
 import { useApp } from "../context/AppContext";
@@ -27,6 +29,9 @@ import type { AudioUriSource, ContentPackId } from "../contentPacks/types";
 import ReaderOnboarding, {
   SWIPE_NAV_ONBOARDING_STEPS,
 } from "../components/ReaderOnboarding";
+import SectionPicker, { type SectionPickerItem } from "../components/SectionPicker";
+import PageIndicatorButton from "../components/PageIndicatorButton";
+import { showAudioError } from "../utils/audioError";
 import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
 import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
 
@@ -50,6 +55,7 @@ export type StotramReaderConfig = {
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList>;
   initialPage?: number;
+  screenKey: CatalogScreen;
   config: StotramReaderConfig;
 };
 
@@ -141,6 +147,7 @@ function PageContent({
 export default function StotramReaderView({
   navigation,
   initialPage = 0,
+  screenKey,
   config,
 }: Props) {
   useKeepAwake();
@@ -149,6 +156,7 @@ export default function StotramReaderView({
     Math.min(Math.max(0, initialPage), totalPages - 1)
   );
   const [hintIndex, setHintIndex] = useState(0);
+  const [sectionPickerVisible, setSectionPickerVisible] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -171,6 +179,22 @@ export default function StotramReaderView({
   const audioTrackPaths = config.getPageAudioTrackPaths(readerPageIndex);
   const hasAudio = config.hasPageAudio(readerPageIndex);
 
+  const sectionItems = useMemo((): SectionPickerItem[] => {
+    const items: SectionPickerItem[] = [{ label: "Cover", page: 0 }];
+    config.readerPages.forEach((page, index) => {
+      items.push({ label: page.titleTe, page: index + 1 });
+    });
+    return items;
+  }, [config.readerPages]);
+
+  const jumpToPage = useCallback((page: number) => {
+    setCurrentPage((p) => {
+      if (page === p) return p;
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      return page;
+    });
+  }, []);
+
   useEffect(() => {
     if (!hintsSeen) setHintIndex(0);
   }, [hintsSeen]);
@@ -179,11 +203,11 @@ export default function StotramReaderView({
     if (currentPage > 0) {
       const page = config.readerPages[currentPage - 1];
       if (page) {
-        setLastSection(currentPage, page.titleTe);
+        setLastSection(screenKey, currentPage, page.titleTe);
         refreshStreak();
       }
     }
-  }, [currentPage, config.readerPages, setLastSection, refreshStreak]);
+  }, [currentPage, config.readerPages, screenKey, setLastSection, refreshStreak]);
 
   useEffect(() => {
     pageScrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -245,8 +269,9 @@ export default function StotramReaderView({
             }
           }
         });
-      } catch (_) {
+      } catch {
         setIsPlaying(false);
+        showAudioError();
       } finally {
         setAudioLoading(false);
       }
@@ -270,9 +295,10 @@ export default function StotramReaderView({
         audioTrackPaths
       );
       await playTrack(0);
-    } catch (_) {
+    } catch {
       setIsPlaying(false);
       setAudioLoading(false);
+      showAudioError();
     }
   }, [
     hasAudio,
@@ -321,7 +347,7 @@ export default function StotramReaderView({
       </View>
       <View style={[styles.topBar, readerTopBarStyle(insets)]}>
         <Pressable
-          onPress={() => navigation.goBack()}
+          onPress={() => navigateToContents(navigation)}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
         >
           <Text style={styles.backBtnText}>← Contents</Text>
@@ -358,9 +384,10 @@ export default function StotramReaderView({
             ← Previous
           </Text>
         </Pressable>
-        <Text style={styles.pageIndicator}>
-          {currentPage + 1} / {totalPages}
-        </Text>
+        <PageIndicatorButton
+          label={`${currentPage + 1} / ${totalPages}`}
+          onPress={() => setSectionPickerVisible(true)}
+        />
         <Pressable
           onPress={goNext}
           disabled={!canGoNext}
@@ -378,6 +405,14 @@ export default function StotramReaderView({
         stepIndex={hintIndex}
         onNext={() => setHintIndex((i) => i + 1)}
         onDone={markHintsSeen}
+      />
+
+      <SectionPicker
+        visible={sectionPickerVisible}
+        sections={sectionItems}
+        currentPage={currentPage}
+        onSelect={jumpToPage}
+        onClose={() => setSectionPickerVisible(false)}
       />
     </View>
   );

@@ -40,9 +40,13 @@ import ReaderOnboarding, {
   SANDHYA_ONBOARDING_STEPS,
 } from "../components/ReaderOnboarding";
 import ReaderAudioControl from "../components/ReaderAudioControl";
+import SectionPicker, { type SectionPickerItem } from "../components/SectionPicker";
+import PageIndicatorButton from "../components/PageIndicatorButton";
+import { showAudioError } from "../utils/audioError";
 import DeityIconBox from "../components/DeityIconBox";
 import { readerNavBarStyle, readerTopBarStyle } from "../utils/readerLayout";
 import { useReaderPageSwipe } from "../hooks/useReaderPageSwipe";
+import { navigateToContents } from "../utils/catalogNavigation";
 
 import { DEITY_ICONS } from "../content/deityIcons";
 
@@ -302,6 +306,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
   const [hintIndex, setHintIndex] = useState(0);
+  const [sectionPickerVisible, setSectionPickerVisible] = useState(false);
   const soundRef = useRef<Audio.Sound | null>(null);
   const autoSlideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pageScrollRef = useRef<ScrollView>(null);
@@ -318,6 +323,23 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
   const { resolveAudioTracks, resolveAudioSource } = useContentPacks();
   const fontScale = FONT_SCALE[fontSize];
 
+  const sectionItems = useMemo((): SectionPickerItem[] => {
+    const items: SectionPickerItem[] = [{ label: "ప్రారంభం", page: 0 }];
+    sandhyavandanamSections.forEach((sec, index) => {
+      items.push({ label: sec.titleTe, page: index + 1 });
+    });
+    return items;
+  }, []);
+
+  const jumpToPage = useCallback((page: number) => {
+    setCurrentPage((p) => {
+      if (page === p) return p;
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setMeaningExpanded(false);
+      return page;
+    });
+  }, []);
+
   useEffect(() => {
     if (!hintsSeen) setHintIndex(0);
   }, [hintsSeen]);
@@ -326,7 +348,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
     if (currentPage > 0) {
       const sec = sandhyavandanamSections[currentPage - 1];
       if (sec) {
-        setLastSection(currentPage, sec.titleTe);
+        setLastSection("SandhyavandanamVidhanam", currentPage, sec.titleTe);
         refreshStreak();
       }
     }
@@ -402,8 +424,9 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
             }
           }
         });
-      } catch (_) {
+      } catch {
         setIsPlaying(false);
+        showAudioError();
       } finally {
         setAudioLoading(false);
       }
@@ -427,9 +450,10 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
         audioTrackPaths
       );
       await playTrack(0);
-    } catch (_) {
+    } catch {
       setIsPlaying(false);
       setAudioLoading(false);
+      showAudioError();
     }
   }, [
     hasAudio,
@@ -464,7 +488,9 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
             soundRef.current = null;
           }
         });
-      } catch (_) {}
+      } catch {
+        showAudioError();
+      }
     },
     [stopAndUnload, resolveAudioSource]
   );
@@ -550,7 +576,7 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
       </View>
       <View style={[styles.topBar, readerTopBarStyle(insets), isLandscape && styles.topBarLandscape]}>
         <Pressable
-          onPress={() => navigation.goBack()}
+          onPress={() => navigateToContents(navigation)}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
         >
           <Text style={[styles.backBtnText, isLandscape && styles.backBtnTextLandscape]}>← Contents</Text>
@@ -651,9 +677,10 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
             Previous
           </Text>
         </Pressable>
-        <Text style={styles.pageIndicator} numberOfLines={1}>
-          Section {currentPage + 1} of {TOTAL_PAGES}
-        </Text>
+        <PageIndicatorButton
+          label={`Section ${currentPage + 1} of ${TOTAL_PAGES}`}
+          onPress={() => setSectionPickerVisible(true)}
+        />
         <Pressable
           onPress={goNext}
           disabled={!canGoNext}
@@ -680,6 +707,14 @@ export default function SandhyavandanamVidhanam({ navigation }: Props) {
         stepIndex={hintIndex}
         onNext={() => setHintIndex((i) => i + 1)}
         onDone={markHintsSeen}
+      />
+
+      <SectionPicker
+        visible={sectionPickerVisible}
+        sections={sectionItems}
+        currentPage={currentPage}
+        onSelect={jumpToPage}
+        onClose={() => setSectionPickerVisible(false)}
       />
     </View>
   );

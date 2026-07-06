@@ -60,65 +60,61 @@ export default function ReaderAudioControl({
     );
   }
 
-  if (showDownload) {
-    return (
+  return (
+    <View style={styles.row}>
       <Pressable
-        onPress={handleDownload}
-        disabled={isDownloading}
+        onPress={onPlayPause}
+        disabled={audioLoading}
         style={({ pressed }) => [
           styles.btn,
           compact && styles.btnCompact,
-          isDownloading && styles.btnDisabled,
-          pressed && !isDownloading && styles.pressed,
+          pressed && styles.pressed,
         ]}
-        accessibilityLabel="Download audio"
+        accessibilityLabel={isPlaying ? "Stop audio" : "Play section audio"}
       >
-        {isDownloading ? (
-          <View style={styles.downloadRow}>
-            <ActivityIndicator size="small" color={colors.textOnDarkMuted} />
-            <Text style={[styles.downloadLabel, compact && styles.downloadLabelCompact]}>
-              Downloading…
-            </Text>
-          </View>
+        {audioLoading ? (
+          <ActivityIndicator size="small" color={colors.goldLight} />
         ) : (
-          <View style={styles.downloadRow}>
+          <Text style={[styles.speakerIcon, compact && styles.iconCompact]}>
+            {isPlaying ? "⏹" : "🔊"}
+          </Text>
+        )}
+      </Pressable>
+
+      {showDownload ? (
+        <Pressable
+          onPress={handleDownload}
+          disabled={isDownloading}
+          style={({ pressed }) => [
+            styles.downloadBtn,
+            compact && styles.downloadBtnCompact,
+            isDownloading && styles.btnDisabled,
+            pressed && !isDownloading && styles.pressed,
+          ]}
+          accessibilityLabel={
+            isDownloading ? "Downloading audio" : "Download all audio for offline"
+          }
+        >
+          {isDownloading ? (
+            <ActivityIndicator size="small" color={colors.textOnDarkMuted} />
+          ) : (
             <Feather
               name="download"
               size={compact ? 14 : 15}
               color={colors.textOnDarkMuted}
             />
-            <Text style={[styles.downloadLabel, compact && styles.downloadLabelCompact]}>
-              Download audio
-            </Text>
-          </View>
-        )}
-      </Pressable>
-    );
-  }
-
-  return (
-    <Pressable
-      onPress={onPlayPause}
-      disabled={audioLoading}
-      style={({ pressed }) => [
-        styles.btn,
-        compact && styles.btnCompact,
-        pressed && styles.pressed,
-      ]}
-      accessibilityLabel={isPlaying ? "Stop audio" : "Play section audio"}
-    >
-      {audioLoading ? (
-        <ActivityIndicator size="small" color={colors.goldLight} />
-      ) : (
-        <Text style={[styles.speakerIcon, compact && styles.iconCompact]}>
-          {isPlaying ? "⏹" : "🔊"}
-        </Text>
-      )}
-    </Pressable>
+          )}
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   btn: {
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -130,6 +126,19 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     minWidth: 36,
+  },
+  downloadBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    minWidth: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 2,
+  },
+  downloadBtnCompact: {
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    minWidth: 30,
   },
   btnDisabled: {
     opacity: 0.5,
@@ -145,18 +154,5 @@ const styles = StyleSheet.create({
   },
   iconDisabled: {
     opacity: 0.6,
-  },
-  downloadRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  downloadLabel: {
-    fontSize: 13,
-    color: colors.textOnDarkMuted,
-    fontWeight: "500",
-  },
-  downloadLabelCompact: {
-    fontSize: 12,
   },
 });

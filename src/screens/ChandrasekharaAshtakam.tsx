@@ -44,6 +44,7 @@ export default function ChandrasekharaAshtakam({ navigation }: Props) {
     <StotramReaderView
       navigation={navigation}
       initialPage={initialPage}
+      screenKey="ChandrasekharaAshtakam"
       config={config}
     />
   );
